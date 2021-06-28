@@ -6,10 +6,10 @@
 #ifndef UCG_BUILTIN_OPS_H_
 #define UCG_BUILTIN_OPS_H_
 
+BEGIN_C_DECLS
+
 #include "../plan/builtin_plan.h"
 #include <ucp/core/ucp_request.h>
-
-BEGIN_C_DECLS
 
 /*
  * The built-in collective operations are composed of one or more steps.
@@ -27,9 +27,20 @@ BEGIN_C_DECLS
  * step templates are used to generate an instance
  * (or it is fetched from cache) and that instance is executed.
  */
+typedef void (*mpi_reduce_f)(void *mpi_op, char *src_buffer,
+                             char *dst_buffer, unsigned dcount,
+                             void* mpi_datatype);
+typedef void(*ucg_builtin_op_complete_cb_f)(void *complete_cb_arg);
 
-extern ucg_group_member_index_t ucg_builtin_my_idx;
-extern unsigned ucg_builtin_num_procs;
+extern ucg_plan_component_t ucg_builtin_component;
+extern mpi_reduce_f ucg_builtin_mpi_reduce_cb;
+extern unsigned builtin_base_am_id;
+extern ucg_group_member_index_t g_myidx;
+extern unsigned num_procs;
+
+#ifndef MPI_IN_PLACE
+#define MPI_IN_PLACE ((void*)0x1)
+#endif
 
 typedef union ucg_builtin_header {
     struct {
@@ -160,7 +171,7 @@ struct ucg_builtin_op {
     ucg_builtin_op_final_cb_t final_cb; /**< Finalization function for the operation */
     ucp_dt_generic_t         *send_dt;  /**< Generic send datatype (if non-contig) */
     ucp_dt_generic_t         *recv_dt;  /**< Generic receive datatype (if non-contig) */
-    dt_span_t                 dtspan_f;
+    dt_span_f                 dtspan_f;
     ucg_builtin_comp_slot_t  *slots;    /**< slots pointer, for faster initialization */
     ucs_list_link_t          *resend;   /**< resend pointer, for faster resend */
     ucg_builtin_op_step_t     steps[];  /**< steps required to complete the operation */
@@ -206,9 +217,6 @@ void ucg_builtin_swap_net_recv(char *netdata, size_t length, size_t offset,
 
 size_t ucg_builtin_get_dt_len(ucp_dt_generic_t *dt_gen);
 
-int ucg_builtin_op_can_reuse(const ucg_plan_t *plan, const ucg_op_t *op,
-                             const ucg_collective_params_t *params);
-typedef void (*release_desc_func_t)(void* desc);
 /*
  * Incoming messages are processed for one of the collective operations
  * currently outstanding - arranged in as a window (think: TCP) of slots.
@@ -220,14 +228,12 @@ typedef void (*release_desc_func_t)(void* desc);
  */
 typedef struct ucg_builtin_comp_desc {
     ucp_recv_desc_t      super;
-    release_desc_func_t  release_desc;
-    char                 padding[UCP_WORKER_HEADROOM_PRIV_SIZE
-                                 - sizeof(release_desc_func_t)];
+    char                 padding[UCP_WORKER_HEADROOM_PRIV_SIZE];
     ucg_builtin_header_t header;
     char                 data[0];
 } ucg_builtin_comp_desc_t;
 
-typedef struct ucg_builtin_comp_slot {
+struct ucg_builtin_comp_slot {
     ucg_builtin_request_t      req;
     union {
         struct {
@@ -239,7 +245,7 @@ typedef struct ucg_builtin_comp_slot {
     ucg_builtin_comp_recv_cb_t cb;
     ucs_list_link_t            msg_head;
     ucs_mpool_t               *mp; /* pool of @ref ucg_builtin_comp_desc_t */
-} ucg_builtin_comp_slot_t;
+};
 
 
 /*
