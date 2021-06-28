@@ -6,19 +6,18 @@
 #ifndef UCG_BUILTIN_PLAN_H
 #define UCG_BUILTIN_PLAN_H
 
-#include <ucg/base/ucg_component.h>
+#include <ucg/api/ucg_plan_component.h>
 #include <ucs/datastruct/mpool.inl>
 #include <uct/api/uct.h>
-
-typedef struct ucg_builtin_config ucg_builtin_config_t;
-typedef struct ucg_builtin_planner_ctx ucg_builtin_planner_ctx_t;
 
 enum UCS_S_PACKED ucg_builtin_algorithm_feature {
     UCG_ALGORITHM_SUPPORT_COMMON_FEATURE        = UCS_BIT(0),   /* support common feature */
     UCG_ALGORITHM_SUPPORT_UNBALANCE_PPN         = UCS_BIT(1),   /* support unbalanced ppn */
     UCG_ALGORITHM_SUPPORT_DISCONTINOUS_RANK     = UCS_BIT(2),   /* suport discontinuous rank */
+    UCG_ALGORITHM_SUPPORT_RANK_FEATURE          = (UCS_BIT(1) | UCS_BIT(2)), /* support discontinuous rank and unbalanced ppn */
     UCG_ALGORITHM_SUPPORT_NON_COMMUTATIVE_OPS   = UCS_BIT(3),   /* support non-commutative operation (e.g. matrix muliplication) */
     UCG_ALGORITHM_SUPPORT_LARGE_DATATYPE        = UCS_BIT(4),    /* support large datatype */
+    UCG_ALGORITHM_SUPPORT_ALLREDUCE_RARE_FEATURE = (UCS_BIT(3) | UCS_BIT(4)), /* support non-commutative and large datatype */
     UCG_ALGORITHM_SUPPORT_BIND_TO_NONE          = UCS_BIT(5),    /* suport bind-to none */
 };
 
@@ -40,7 +39,7 @@ struct ucg_builtin_algorithm {
     uint8_t  feature_flag; /* @ref enum ucg_builtin_algorithm_feature */
 };
 
-extern struct ucg_builtin_algorithm ucg_builtin_algo_config;
+extern struct ucg_builtin_algorithm ucg_algo;
 
 enum choose_ops_mask {
     OPS_AUTO_DECISION,
@@ -160,28 +159,27 @@ typedef struct ucg_builtin_plan_phase {
 #endif
 } ucg_builtin_plan_phase_t;
 
+typedef struct ucg_builtin_group_ctx ucg_builtin_group_ctx_t;
 typedef struct ucg_builtin_plan {
-    ucg_plan_t                 super;
-    void                      *slots;   /* slots for builtin operations */
-    ucs_list_link_t           *resend;  /* per-group list of requests to resend */
-    ucs_list_link_t            list;    /* member of a per-group list of plans */
-    ucs_list_link_t            by_root; /* extra phases for non-zero root */
-    ucs_mpool_t                op_mp;   /* memory pool for (builtin_)operations */
-    ucg_step_idx_ext_t         phs_cnt; /* number of phases in the normal flow */
-    ucg_step_idx_ext_t         step_cnt; /* number of steps in the normal flow */
-    ucg_step_idx_ext_t         ep_cnt;  /* total endpoint count */
-    uint16_t                   am_id;   /* active message ID */
-    size_t                     non_power_of_two; /* number of processes is power of two or not */
-    uint64_t                   feature; /* enum ucg_builtin_algorithm_feature */
-    ucg_builtin_planner_ctx_t *context;
-    dt_convert_t               convert_f; /* convert datatypes */
-    dt_span_t                  dtspan_f;
-    ucg_builtin_plan_phase_t   phss[];  /* topology's phases */
+    ucg_plan_t               super;
+    void                    *slots;   /* slots for builtin operations */
+    ucs_list_link_t         *resend;  /* per-group list of requests to resend */
+    ucs_list_link_t          list;    /* member of a per-group list of plans */
+    ucs_list_link_t          by_root; /* extra phases for non-zero root */
+    ucs_mpool_t              op_mp;   /* memory pool for (builtin_)operations */
+    ucg_step_idx_ext_t       phs_cnt; /* number of phases in the normal flow */
+    ucg_step_idx_ext_t       step_cnt; /* number of steps in the normal flow */
+    ucg_step_idx_ext_t       ep_cnt;  /* total endpoint count */
+    uint16_t                 am_id;   /* active message ID */
+    size_t                   non_power_of_two; /* number of processes is power of two or not */
+    dt_convert_f             convert_f; /* convert datatypes */
+    dt_span_f                dtspan_f;
+    ucg_builtin_plan_phase_t phss[];  /* topology's phases */
 /*  uct_ep_h                 eps[];    * logically located here */
 } ucg_builtin_plan_t;
 
 #define UCG_BUILTIN_CONNECT_SINGLE_EP ((unsigned)-1)
-ucs_status_t ucg_builtin_connect(ucg_builtin_planner_ctx_t *ctx,
+ucs_status_t ucg_builtin_connect(ucg_builtin_group_ctx_t *ctx,
                                  ucg_group_member_index_t idx, ucg_builtin_plan_phase_t *phase,
                                  unsigned phase_ep_index);
 
@@ -194,7 +192,7 @@ typedef struct ucg_builtin_binomial_tree_config {
     unsigned degree_intra_fanin;
 } ucg_builtin_binomial_tree_config_t;
 extern ucs_config_field_t ucg_builtin_binomial_tree_config_table[];
-ucs_status_t ucg_builtin_binomial_tree_create(ucg_builtin_planner_ctx_t *ctx,
+ucs_status_t ucg_builtin_binomial_tree_create(ucg_builtin_group_ctx_t *ctx,
                                               enum ucg_builtin_plan_topology_type plan_topo_type,
                                               const ucg_builtin_config_t *config,
                                               const ucg_group_params_t *group_params,
@@ -205,14 +203,14 @@ typedef struct ucg_builtin_recursive_config {
     unsigned factor;
 } ucg_builtin_recursive_config_t;
 
-ucs_status_t ucg_builtin_recursive_create(ucg_builtin_planner_ctx_t *ctx,
+ucs_status_t ucg_builtin_recursive_create(ucg_builtin_group_ctx_t *ctx,
                                           enum ucg_builtin_plan_topology_type plan_topo_type,
                                           const ucg_builtin_config_t *config,
                                           const ucg_group_params_t *group_params,
                                           const ucg_collective_type_t *coll_type,
                                           ucg_builtin_plan_t **plan_p);
 
-ucs_status_t ucg_builtin_recursive_connect(ucg_builtin_planner_ctx_t *ctx,
+ucs_status_t ucg_builtin_recursive_connect(ucg_builtin_group_ctx_t *ctx,
                                            ucg_group_member_index_t my_rank,
                                            ucg_group_member_index_t* member_list,
                                            ucg_group_member_index_t member_cnt,
@@ -220,8 +218,8 @@ ucs_status_t ucg_builtin_recursive_connect(ucg_builtin_planner_ctx_t *ctx,
                                            unsigned check_swap,
                                            ucg_builtin_plan_t *recursive);
 
-void ucg_builtin_recursive_compute_steps(ucg_group_member_index_t my_index_local,
-                                         unsigned rank_count, unsigned factor, unsigned *steps);
+ucs_status_t ucg_builtin_recursive_compute_steps(ucg_group_member_index_t my_index_local,
+                                                 unsigned rank_count, unsigned factor, unsigned *steps);
 
 
 typedef struct ucg_builtin_bruck_config {
@@ -232,21 +230,43 @@ typedef struct ucg_builtin_ring_config {
     unsigned factor;
 } ucg_builtin_ring_config_t;
 
-ucs_status_t ucg_builtin_ring_create(ucg_builtin_planner_ctx_t *ctx,
+ucs_status_t ucg_builtin_ring_create(ucg_builtin_group_ctx_t *ctx,
                                      enum ucg_builtin_plan_topology_type plan_topo_type,
                                      const ucg_builtin_config_t *config,
                                      const ucg_group_params_t *group_params,
                                      const ucg_collective_type_t *coll_type,
                                      ucg_builtin_plan_t **plan_p);
 
-ucs_status_t ucg_topo_neighbor_create(ucg_builtin_planner_ctx_t *ctx,
+ucs_status_t ucg_topo_neighbor_create(ucg_builtin_group_ctx_t *ctx,
                                       enum ucg_builtin_plan_topology_type plan_topo_type,
                                       const ucg_builtin_config_t *config,
                                       const ucg_group_params_t *group_params,
                                       const ucg_collective_type_t *coll_type,
                                       ucg_builtin_plan_t **plan_p);
 
-void choose_distance_from_topo_aware_level(enum ucg_group_member_distance *domain_distance);
+struct ucg_builtin_config {
+    ucg_plan_config_t    super;
+
+    ucg_builtin_binomial_tree_config_t bmtree;
+    ucg_builtin_recursive_config_t     recursive;
+
+    unsigned                       cache_size;
+    size_t                         short_max_tx;
+    size_t                         bcopy_max_tx;
+    unsigned                       mem_reg_opt_cnt;
+    unsigned                       large_datatype_threshold;
+
+    unsigned                       bcopy_to_zcopy_opt;
+    double                         bcast_algorithm;
+    double                         allreduce_algorithm;
+    double                         barrier_algorithm;
+
+    unsigned                       pipelining;
+
+    unsigned                       max_msg_list_size;
+};
+
+ucs_status_t choose_distance_from_topo_aware_level(enum ucg_group_member_distance *domain_distance);
 
 /***************************** Topology information *****************************/
 typedef struct ucg_builtin_topology_info_params {
@@ -262,15 +282,15 @@ ucs_status_t ucg_builtin_topology_info_create(ucg_builtin_topology_info_params_t
 
 ucs_status_t ucg_builtin_am_handler(void *arg, void *data, size_t length, unsigned am_flags);
 
-void ucg_builtin_msg_dump(void *arg, uct_am_trace_type_t type,
+void ucg_builtin_msg_dump(ucp_worker_h worker, uct_am_trace_type_t type,
                           uint8_t id, const void *data, size_t length,
                           char *buffer, size_t max);
 
-void ucg_builtin_bcast_algo_switch(const enum ucg_builtin_bcast_algorithm bcast_algo_decision, struct ucg_builtin_algorithm *algo);
+ucs_status_t ucg_builtin_bcast_algo_switch(const enum ucg_builtin_bcast_algorithm bcast_algo_decision, struct ucg_builtin_algorithm *algo);
 
-void ucg_builtin_barrier_algo_switch(const enum ucg_builtin_barrier_algorithm barrier_algo_decision, struct ucg_builtin_algorithm *algo);
+ucs_status_t ucg_builtin_barrier_algo_switch(const enum ucg_builtin_barrier_algorithm barrier_algo_decision, struct ucg_builtin_algorithm *algo);
 
-void ucg_builtin_allreduce_algo_switch(const enum ucg_builtin_allreduce_algorithm allreduce_algo_decision, struct ucg_builtin_algorithm *algo);
+ucs_status_t ucg_builtin_allreduce_algo_switch(const enum ucg_builtin_allreduce_algorithm allreduce_algo_decision, struct ucg_builtin_algorithm *algo);
 
 ucs_status_t ucg_builtin_check_ppn(const ucg_group_params_t *group_params,
                                    unsigned *unequal_ppn);
@@ -281,6 +301,8 @@ ucs_status_t ucg_builtin_find_myself(const ucg_group_params_t *group_params,
 ucs_status_t ucg_builtin_check_continuous_number(const ucg_group_params_t *group_params,
                                                  enum ucg_group_member_distance domain_distance,
                                                  unsigned *discont_flag);
+
+enum ucg_builtin_plan_topology_type ucg_builtin_choose_type(enum ucg_collective_modifiers flags);
 
 void ucg_builtin_plan_decision_in_discontinuous_case(const size_t msg_size,
                                                      const ucg_group_params_t *group_params,
@@ -297,13 +319,19 @@ void plan_decision_fixed(const size_t msg_size,
                          enum ucg_builtin_allreduce_algorithm *allreduce_algo_decision,
                          enum ucg_builtin_barrier_algorithm *barrier_algo_decision);
 
-enum choose_ops_mask ucg_builtin_plan_choose_ops(ucg_builtin_config_t *config, enum ucg_collective_modifiers ops_type_choose);
+enum choose_ops_mask ucg_builtin_plan_choose_ops(ucg_plan_component_t *plan_component, enum ucg_collective_modifiers ops_type_choose);
 
-ucs_status_t ucg_builtin_algorithm_decision(const ucg_builtin_planner_ctx_t *ctx,
-                                            const ucg_collective_params_t *coll_params);
+ucs_status_t ucg_builtin_algorithm_decision(const ucg_collective_type_t *coll_type,
+                                            const size_t msg_size,
+                                            const ucg_group_params_t *group_params,
+                                            const ucg_collective_params_t *coll_params,
+                                            ucg_plan_component_t *plan_component);
 
 unsigned ucg_builtin_calculate_ppx(const ucg_group_params_t *group_params,
                                    enum ucg_group_member_distance domain_distance);
+
+
+ucs_status_t ucg_builtin_destroy_plan(ucg_builtin_plan_t *plan, ucg_group_h group);
 
 
 #endif

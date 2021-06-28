@@ -12,13 +12,12 @@
 #include <ucs/debug/assert.h>
 
 #include "builtin_cb.inl"
-#include "../plan/builtin_plan.h"
-#include "../builtin.h"
+
 /*
 * rank id, used in the phase step calculate algorithm
 */
-ucg_group_member_index_t ucg_builtin_my_idx = 0;
-unsigned ucg_builtin_num_procs = 0;
+ucg_group_member_index_t g_myidx = 0;
+unsigned num_procs = 0;
 
 /******************************************************************************
  *                                                                            *
@@ -278,11 +277,11 @@ static UCS_F_ALWAYS_INLINE ucs_status_t ucg_builtin_step_am_zcopy_max(ucg_builti
         send_buffer               = step->non_contig.contig_buffer;
     }
 
-    ucg_offset_t frag_size     = step->fragment_length;
-    void* iov_buffer_limit     = send_buffer + step->buffer_length - frag_size;
-    unsigned zcomp_index       = step->iter_ep * step->fragments +
+    ucg_offset_t frag_size      = step->fragment_length;
+    void* iov_buffer_limit      = send_buffer + step->buffer_length - frag_size;
+    unsigned zcomp_index        = step->iter_ep * step->fragments +
                                   step->iter_offset / step->fragment_length;
-    ucg_builtin_zcomp_t *zcomp = &step->zcopy.zcomp[zcomp_index];
+    ucg_builtin_zcomp_t *zcomp  = &step->zcopy.zcomp[zcomp_index];
     ucs_status_t (*ep_am_zcopy)(uct_ep_h, uint8_t, const void*, unsigned,
             const uct_iov_t*, size_t, unsigned, uct_completion_t*) =
                     step->uct_iface->ops.ep_am_zcopy;
@@ -624,12 +623,21 @@ step_execute_error:
     return status;
 }
 
+void ucg_builtin_dispose_packet(ucg_builtin_comp_desc_t *desc)
+{
+    /* Dispose of the packet, according to its allocation */
+    if (desc->super.flags == UCT_CB_PARAM_FLAG_DESC) {
+        uct_iface_release_desc(desc);
+    } else {
+        ucs_mpool_put_inline(desc);
+    }
+}
+
 ucs_status_t ucg_builtin_msg_process(ucg_builtin_comp_slot_t *slot, ucg_builtin_request_t *req)
 {
     static unsigned loop_cnt = 0;
     static unsigned is_return = 0;
-    ucg_builtin_plan_t *plan = (ucg_builtin_plan_t*)req->op->super.plan;
-    unsigned max_msg_list_size = plan->context->config->max_msg_list_size;
+    unsigned max_msg_list_size = ((ucg_builtin_config_t*) req->op->super.plan->planner->plan_config)->max_msg_list_size;
 
     /* Look for matches in list of packets waiting on this slot */
     uint16_t local_id = slot->local_id;
@@ -663,7 +671,7 @@ ucs_status_t ucg_builtin_msg_process(ucg_builtin_comp_slot_t *slot, ucg_builtin_
             int is_step_done = step->recv_cb(&slot->req,
                                              desc->header.remote_offset, &desc->data[0],
                                              desc->super.length);
-            desc->release_desc(desc);
+            ucg_builtin_dispose_packet(desc);
 
             loop_cnt--;
 
@@ -700,7 +708,7 @@ ucs_status_t ucg_builtin_step_set_contig(ucg_builtin_op_step_t *step,
     if (step->flags & UCG_BUILTIN_OP_STEP_FLAG_SEND_AM_ZCOPY) {
         /* The send buffer changed, reregister it */
         uct_md_mem_dereg(step->uct_md, step->zcopy.memh);
-        status = uct_md_mem_reg(step->uct_md, step->non_contig.contig_buffer,
+        status = uct_md_mem_reg(step->uct_md, step->non_contig.contig_buffer, 
                                 step->buffer_length, UCT_MD_MEM_ACCESS_ALL, &step->zcopy.memh);
         if (status != UCS_OK) {
             if (step->zcopy.zcomp != NULL) {
@@ -1010,27 +1018,6 @@ size_t ucg_builtin_get_dt_len(ucp_dt_generic_t *dt_gen)
     return len;
 }
 
-int ucg_builtin_op_can_reuse(const ucg_plan_t *plan, const ucg_op_t *op,
-                             const ucg_collective_params_t *params)
-{
-    ucp_datatype_t send_dtype = UCP_DATATYPE_CONTIG;
-    ucg_builtin_plan_t *builtin_plan = (ucg_builtin_plan_t *)plan;
-    ucg_builtin_op_t *builtin_op = (ucg_builtin_op_t *)op;
-
-    if (builtin_op->send_dt != NULL) {
-        return 0;
-    }
-
-    if (params->send.count > 0) {
-        builtin_plan->convert_f(params->send.dt_ext, &send_dtype);
-        if (!UCG_DT_IS_CONTIG(params, send_dtype)) {
-            return 0;
-        }
-    }
-
-    return 1;
-}
-
 ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
                                      ucp_datatype_t send_dtype,
                                      ucp_datatype_t recv_dtype,
@@ -1063,13 +1050,13 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
     step->iter_offset        = 0;
     step->fragment_pending   = NULL;
     step->recv_buffer        = (int8_t*)params->recv.buf;
-    step->send_buffer        = ((params->send.buf == ucg_builtin_mpi_in_place) ||
+    step->send_buffer        = ((params->send.buf == MPI_IN_PLACE) ||
             !(extra_flags & UCG_BUILTIN_OP_STEP_FLAG_FIRST_STEP)) ?
                     (int8_t*)params->recv.buf : (int8_t*)params->send.buf;
     step->send_cb            = NULL;
 
     step->non_contig.contig_buffer = NULL;
-    step->non_contig.pack_state = NULL;
+    step->non_contig.pack_state   = NULL;
     step->non_contig.unpack_state = NULL;
     step->non_contig.pack_state_recv = NULL;
 
@@ -1078,7 +1065,7 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
         step->buf_len_unit = step->buffer_length;
         size_t special_offset = 1UL << phase->step_index;
         step->buffer_length *= (extra_flags == UCG_BUILTIN_OP_STEP_FLAG_LAST_STEP) ?
-                               (ucg_builtin_num_procs - special_offset) : special_offset;
+                               (num_procs - special_offset) : special_offset;
     }
 
     /* for alltoall bruck, buffer_length should be changed! */
@@ -1088,7 +1075,7 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
         size_t buffer_length_discrete = 0;
         if (step->displs_rule == UCG_BUILTIN_OP_STEP_DISPLS_RULE_BRUCK_ALLTOALL) {
             k = (unsigned)step->am_header.step_idx;
-            for (i = 0; i < ucg_builtin_num_procs; i++) {
+            for (i = 0; i < num_procs; i++) {
                 if ((i >> k) & 1) { // kth bit is 1
                     buffer_length_discrete++;
                 }
@@ -1114,15 +1101,14 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
         int num_offset_blocks;
         int send_position;
         int recv_position;
-        int quotient = params->send.count / ucg_builtin_num_procs;
-        int remainder = params->send.count % ucg_builtin_num_procs;
+        int quotient = params->send.count / num_procs;
+        int remainder = params->send.count % num_procs;
 
         step->buf_len_unit   = step->buffer_length; // for ring init
         step->buffer_length = params->send.dt_len * quotient;
-        num_offset_blocks = (ucg_builtin_my_idx - phase->step_index + UCG_BUILTIN_NUM_PROCS_DOUBLE *
-                            ucg_builtin_num_procs) % ucg_builtin_num_procs;
+        num_offset_blocks = (g_myidx - phase->step_index + UCG_BUILTIN_NUM_PROCS_DOUBLE * num_procs) % num_procs;
         send_position = num_offset_blocks + 1;
-        recv_position = (num_offset_blocks - 1 + ucg_builtin_num_procs) % ucg_builtin_num_procs + 1;
+        recv_position = (num_offset_blocks - 1 + num_procs) % num_procs + 1;
 
         step->buffer_length_recv = (recv_position <= remainder) ? step->buffer_length + params->send.dt_len :
                                    step->buffer_length;
@@ -1138,7 +1124,7 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
     if (phase->method == UCG_PLAN_METHOD_ALLGATHER_RECURSIVE) {
         size_t power = 1UL << (phase->step_index - 1);
         size_t base_index = 0;
-        base_index = (ucg_builtin_my_idx / power) * power;
+        base_index = (g_myidx / power) * power;
 
         step->am_header.remote_offset = base_index * params->send.count * params->send.dt_len;
         /* need set the send offset if it's not the first step */
@@ -1182,7 +1168,7 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
             extra_flags      |= UCG_BUILTIN_OP_STEP_FLAG_LENGTH_PER_REQUEST;
             /* no break */
         case UCG_PLAN_METHOD_REDUCE_WAYPOINT:
-            extra_flags  = ((send_flag & UCG_BUILTIN_OP_STEP_FLAG_FRAGMENTED) && ucg_builtin_algo_config.pipeline) ?
+            extra_flags  = ((send_flag & UCG_BUILTIN_OP_STEP_FLAG_FRAGMENTED) && ucg_algo.pipeline) ?
                            (extra_flags | UCG_BUILTIN_OP_STEP_FLAG_PIPELINED) : extra_flags;
             extra_flags |= UCG_BUILTIN_OP_STEP_FLAG_RECV_BEFORE_SEND1;
             step->flags  = send_flag | extra_flags;
@@ -1193,7 +1179,7 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
             step->send_buffer = *current_data_buffer;
             step->recv_buffer = step->send_buffer;
 
-            if (params->send.buf == ucg_builtin_mpi_in_place) {
+            if (params->send.buf == MPI_IN_PLACE) {
                 memcpy(step->send_buffer, params->recv.buf, step->buffer_length);
             } else {
                 memcpy(step->send_buffer, params->send.buf, step->buffer_length);
@@ -1220,14 +1206,14 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
 
         /* Recv-one, Send-all */
         case UCG_PLAN_METHOD_BCAST_WAYPOINT:
-            extra_flags  = ((send_flag & UCG_BUILTIN_OP_STEP_FLAG_FRAGMENTED) && ucg_builtin_algo_config.pipeline) ?
+            extra_flags  = ((send_flag & UCG_BUILTIN_OP_STEP_FLAG_FRAGMENTED) && ucg_algo.pipeline) ?
                            (extra_flags | UCG_BUILTIN_OP_STEP_FLAG_PIPELINED) : extra_flags;
             extra_flags |= UCG_BUILTIN_OP_STEP_FLAG_RECV1_BEFORE_SEND;
             step->flags  = send_flag | extra_flags;
             break;
 
         case UCG_PLAN_METHOD_SCATTER_WAYPOINT:
-            extra_flags  = ((send_flag & UCG_BUILTIN_OP_STEP_FLAG_FRAGMENTED) && ucg_builtin_algo_config.pipeline) ?
+            extra_flags  = ((send_flag & UCG_BUILTIN_OP_STEP_FLAG_FRAGMENTED) && ucg_algo.pipeline) ?
                            (extra_flags | UCG_BUILTIN_OP_STEP_FLAG_PIPELINED) : extra_flags;
 
             extra_flags |= UCG_BUILTIN_OP_STEP_FLAG_RECV1_BEFORE_SEND;
@@ -1296,8 +1282,8 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
     }
 
     /* Pipelining preparation */
-    if ((step->flags & UCG_BUILTIN_OP_STEP_FLAG_PIPELINED) && ucg_builtin_algo_config.pipeline) {
-        step->fragment_pending = (uint8_t*)UCG_ALLOC_CHECK(step->fragments *
+    if ((step->flags & UCG_BUILTIN_OP_STEP_FLAG_PIPELINED) && ucg_algo.pipeline) {
+        step->fragment_pending = (uint8_t*)UCS_ALLOC_CHECK(step->fragments *
                 sizeof(uint8_t*), "ucg_builtin_step_pipelining");
     }
 
@@ -1310,7 +1296,7 @@ ucs_status_t ucg_builtin_step_create(ucg_builtin_plan_phase_t *phase,
     }
 
     if (phase->segmented) {
-        phase->recv_cache_buffer = (int8_t *)UCG_ALLOC_CHECK(params->send.count * send_dt_len, "recv_cache_buffer");
+        phase->recv_cache_buffer = (int8_t *)UCS_ALLOC_CHECK(params->send.count * send_dt_len, "recv_cache_buffer");
         ucs_debug("segmented phase %p fragments %" PRIu32 "", phase, step->fragments_recv);
     } else {
         phase->recv_cache_buffer = NULL;
@@ -1418,9 +1404,9 @@ ucs_status_t ucg_builtin_op_create(ucg_plan_t *plan,
     }
 
     /* get number of processes */
-    ucg_builtin_num_procs = (unsigned)(ucg_group_get_params(plan->group))->member_count;
-    ucg_builtin_my_idx = plan->my_index;
-    ucs_debug("ucg rank: %" PRIu64 " phase cnt %u", ucg_builtin_my_idx, phase_count);
+    num_procs = (unsigned)(ucg_group_get_params(plan->group))->member_count;
+    g_myidx = plan->my_index;
+    ucs_debug("ucg rank: %" PRIu64 " phase cnt %u", g_myidx, phase_count);
     /* Select the right initialization callback */
     status = ucg_builtin_op_select_callback(builtin_plan, UCG_DT_IS_CONTIG(params, send_dtype), UCG_DT_IS_CONTIG(params, recv_dtype), &op->init_cb, &op->final_cb);
     if (status != UCS_OK) {
@@ -1462,7 +1448,7 @@ ucs_status_t ucg_builtin_op_create(ucg_plan_t *plan,
     }
 
     /* Select the right optimization callback */
-    status = ucg_builtin_op_consider_optimization(op, builtin_plan->context->config);
+    status = ucg_builtin_op_consider_optimization(op, (ucg_builtin_config_t*)plan->planner->plan_config);
     if (status != UCS_OK) {
         goto op_cleanup;
     }
@@ -1472,8 +1458,6 @@ ucs_status_t ucg_builtin_op_create(ucg_plan_t *plan,
 
     op->slots  = (ucg_builtin_comp_slot_t*)builtin_plan->slots;
     op->resend = builtin_plan->resend;
-    op->super.trigger = ucg_builtin_op_trigger;
-    op->super.discard = ucg_builtin_op_discard;
     *new_op    = &op->super;
     return UCS_OK;
 

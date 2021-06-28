@@ -6,14 +6,11 @@
 #ifndef UCG_GROUP_H_
 #define UCG_GROUP_H_
 
-
-#include "ucg_component.h"
-#include <ucg/api/ucg.h>
+#include "ucg_plan.h"
+#include "../api/ucg.h"
 #include <ucs/datastruct/khash.h>
 
 #include <ucs/stats/stats.h>
-
-BEGIN_C_DECLS
 
 #define UCG_GROUP_MAX_IFACES 8
 
@@ -29,46 +26,49 @@ BEGIN_C_DECLS
 /* max number of collective type in the plan cache. */
 #define UCG_GROUP_MAX_COLL_TYPE_BUCKETS 16
 
+extern size_t ucg_ctx_worker_offset;
+#define UCG_WORKER_TO_GROUPS_CTX(worker) \
+    ((ucg_groups_t*)((char*)(worker) + ucg_ctx_worker_offset))
+
 #define UCG_FLAG_MASK(params) \
     ((params)->type.modifiers & UCG_GROUP_COLLECTIVE_MODIFIER_MASK)
 
 #define UCG_ROOT_RANK(params) \
     ((params)->type.root)
 
-#if ENABLE_STATS
-/**
- * UCG group statistics counters
- */
-enum {
-    UCG_GROUP_STAT_PLANS_CREATED,
-    UCG_GROUP_STAT_PLANS_USED,
-
-    UCG_GROUP_STAT_OPS_CREATED,
-    UCG_GROUP_STAT_OPS_USED,
-    UCG_GROUP_STAT_OPS_IMMEDIATE,
-
-    UCG_GROUP_STAT_LAST
-};
-#endif
-
 __KHASH_TYPE(ucg_groups_ep, ucg_group_member_index_t, ucp_ep_h)
 
-typedef struct ucg_group {
+/*
+ * To enable the "Groups" feature in UCX - it's registered as part of the UCX
+ * context - and allocated a context slot in each UCP Worker at a certain offset.
+ */
+typedef struct ucg_groups {
+    ucs_list_link_t       groups_head;
+    ucg_group_id_t        next_id;
+
+    unsigned              iface_cnt;
+    uct_iface_h           ifaces[UCG_GROUP_MAX_IFACES];
+
+    khash_t(ucg_groups_ep) eps;                 /**< endpoints created */
+
+    size_t                total_planner_sizes;
+    unsigned              num_planners;
+    ucg_plan_desc_t      *planners;
+} ucg_groups_t;
+
+struct ucg_group {
     /*
      * Whether a current barrier is waited upon. If so, new collectives cannot
      * start until this barrier is cleared, so it is put in the pending queue.
      */
     int                is_barrier_outstanding;
 
-    ucg_context_h      context;
-    ucg_planner_ctx_h *planners_context;
-    int                num_planners_context;
-
-    ucp_worker_h       worker;       /* shortcut for params.ucp_worker */
+    ucg_worker_h       worker;       /* for conn. est. and progress calls */
     ucg_coll_id_t      next_id;      /* for the next collective operation */
+    ucg_group_id_t     group_id;     /* group identifier (order of creation) */
     ucs_queue_head_t   pending;      /* requests currently pending execution */
     ucg_group_params_t params;       /* parameters, for future connections */
-    ucs_list_link_t    list;         /* group list */
+    ucs_list_link_t    list;         /* worker's group list */
 
     UCS_STATS_NODE_DECLARE(stats);
 
@@ -87,47 +87,19 @@ typedef struct ucg_group {
      * the criterion to decide whether plan has been found.
      */
     unsigned           root_used[UCG_GROUP_MAX_ROOT_PARAM];
-    /* shortcut for address lookup and release */
-    struct {
-        ucg_addr_lookup_callback_t lookup_f;
-        ucg_addr_release_callback_t release_f;
-    } address;
-    khash_t(ucg_groups_ep) eps;                 /**< endpoints created */
-} ucg_group_t;
 
-typedef struct ucg_group_ep {
-    uct_ep_h am_ep;
-    const uct_iface_attr_t *am_iface_attr;
-    ucp_ep_h ucp_ep;
-    uct_md_h md;
-    const uct_md_attr_t *md_attr;
-} ucg_group_ep_t;
+    /* Below this point - the private per-planner data is allocated/stored */
+};
 
-const ucg_group_params_t* ucg_group_get_params(ucg_group_h group);
+int ucg_builtin_op_can_reuse(const ucg_plan_t *plan, const ucg_op_t *op,
+                             const ucg_collective_params_t *params);
 
-ucs_status_t ucg_group_connect(ucg_group_h group,
-                               ucg_group_member_index_t dst,
-                               ucg_group_ep_t *ep);
-
-ucg_plan_t* ucg_group_get_cache_plan(ucg_group_h group,
-                                     ucg_collective_params_t *params);
-
-void ucg_group_update_cache_plan(ucg_group_h group,
-                                 ucg_collective_params_t *params,
-                                 ucg_plan_t *plan);
-
-ucs_status_t ucg_group_select_planner(ucg_group_h group,
-                                      const char* planner_name,
-                                      const ucg_collective_params_t *coll_params,
-                                      ucg_planner_h *planner_p,
-                                      ucg_planner_ctx_h *planner_ctx_p);
+void ucg_builtin_update_op(const ucg_plan_t *plan, ucg_op_t *op,
+                           const ucg_collective_params_t *params);
 
 int ucg_is_segmented_allreduce(const ucg_collective_params_t *coll_params);
 
-int ucg_is_noncontig_allreduce(const ucg_params_t *group_params,
+int ucg_is_noncontig_allreduce(const ucg_group_params_t *group_params,
                                const ucg_collective_params_t *coll_params);
-
-
-END_C_DECLS
 
 #endif /* UCG_GROUP_H_ */
