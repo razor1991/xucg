@@ -1697,7 +1697,7 @@ static ucs_status_t ucg_builtin_binomial_tree_build(const ucg_builtin_binomial_t
     return status;
 }
 
-static void ucg_calcu_node_cnt(unsigned *node_cnt, const ucg_group_params_t *group_params)
+static UCS_F_NOINLINE void ucg_calcu_node_cnt(unsigned *node_cnt, const ucg_group_params_t *group_params)
 {
     ucg_group_member_index_t member_idx;
     unsigned node_idx;
