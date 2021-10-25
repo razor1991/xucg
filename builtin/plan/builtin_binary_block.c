@@ -10,6 +10,7 @@
 #include <uct/api/uct_def.h>
 #include <ucs/arch/bitops.h>
 #include "builtin_plan.h"
+#include "builtin_algo_mgr.h"
 
 typedef struct ucg_builtin_binary_block_params {
     ucg_builtin_base_params_t super;
@@ -217,6 +218,7 @@ STATIC_GTEST ucs_status_t ucg_builtin_get_recv_block_index(unsigned ep_cnt, unsi
     size_t alloc_size = ep_cnt * sizeof(unsigned);
     unsigned *arr = (unsigned *)ucs_malloc(alloc_size, "arr");
     if (arr == NULL) {
+        ucs_error("no memory for malloc");
         return UCS_ERR_NO_MEMORY;
     }
     memset(arr, 0, alloc_size);
@@ -285,6 +287,7 @@ STATIC_GTEST ucs_status_t ucg_builtin_divide_block_buffers(unsigned block_cnt,
                                 current_group_process_cnt, "allocate block");
             if (block_buffer == NULL) {
                 status = UCS_ERR_NO_MEMORY;
+                ucs_error("no memory for malloc");
                 goto cleanup_buffer;
             }
             ucg_builtin_block_buffer(block_cnt, current_group_process_cnt, block_buffer);
@@ -296,6 +299,7 @@ STATIC_GTEST ucs_status_t ucg_builtin_divide_block_buffers(unsigned block_cnt,
                                 current_group_process_cnt, "allocate block");
             if (block_buffer == NULL) {
                 status = UCS_ERR_NO_MEMORY;
+                ucs_error("no memory for malloc");
                 goto cleanup_buffer;
             }
             unsigned idx;
@@ -337,6 +341,7 @@ STATIC_GTEST ucs_status_t ucg_builtin_init_block_buffers(unsigned block_cnt,
 {
     *block_buffers = (unsigned**)ucs_malloc(sizeof(unsigned *)*total_group_cnt, "allocate blocks");
     if (*block_buffers == NULL) {
+        ucs_error("no memory for malloc");
         return UCS_ERR_NO_MEMORY;
     }
 
@@ -1074,12 +1079,12 @@ static ucg_builtin_plan_t *ucg_builtin_binary_block_allocate_plan(const ucg_grou
         member_cnt = group_params->member_count;
     } else {
         if (ucg_algo.topo_level == UCG_GROUP_HIERARCHY_LEVEL_NODE) {
-            local_idx = group_params->member_index - *topo_params->local_members;
+            local_idx = group_params->member_index - (*topo_params->local_members);
             member_cnt = topo_params->num_local_procs;
-            intra_node_phs_cnt = topo_params->local.socket.num;
+            intra_node_phs_cnt = topo_params->local.socket.num;;
             inter_node_phs_cnt = topo_params->node_cnt;
         } else if (ucg_algo.topo_level == UCG_GROUP_HIERARCHY_LEVEL_SOCKET) {
-            local_idx = group_params->member_index - *topo_params->local.socket.members;
+            local_idx = group_params->member_index - (*topo_params->local.socket.members);
             member_cnt = topo_params->local.socket.member_cnt;
             inter_node_phs_cnt = topo_params->node_cnt;
         }
@@ -1095,21 +1100,23 @@ static ucg_builtin_plan_t *ucg_builtin_binary_block_allocate_plan(const ucg_grou
     ucg_builtin_get_binaryblocks_current_group(local_idx + 1, member_cnt, &cur_group_proc_cnt, &cur_group_begin_idx);
     ucg_builtin_get_binaryblocks_next_group(local_idx + 1, member_cnt, &next_group_proc_cnt, &next_group_begin_idx);
 
-    total_phs_cnt += ucs_ilog2(cur_group_proc_cnt);
+    unsigned cur_ilog2 = ucs_ilog2(cur_group_proc_cnt);
+    total_phs_cnt += cur_ilog2;
     total_phs_cnt += 1;
     total_phs_cnt += next_group_proc_cnt / cur_group_proc_cnt;
     total_phs_cnt += 1;
     total_phs_cnt += next_group_proc_cnt / cur_group_proc_cnt;
-    total_phs_cnt += ucs_ilog2(cur_group_proc_cnt);
+    total_phs_cnt += cur_ilog2;
 
     size_t alloc_size = sizeof(ucg_builtin_plan_t) +
-        total_phs_cnt * (sizeof(ucg_builtin_plan_phase_t) + total_phs_cnt * sizeof(uct_ep_h));
+        total_phs_cnt * (sizeof(ucg_builtin_plan_phase_t) + (total_phs_cnt * sizeof(uct_ep_h)));
 
     ucg_builtin_plan_t *binary_block = ucs_malloc(alloc_size, "rabenseifner algorithm");
     if (binary_block == NULL) {
         return NULL;
     }
 
+    /* Initialize all variables of current plan */
     memset(binary_block, 0, alloc_size);
 
     return binary_block;
@@ -1119,7 +1126,7 @@ ucs_status_t ucg_builtin_binary_block_create(ucg_builtin_group_ctx_t *ctx,
                                              enum ucg_builtin_plan_topology_type plan_topo_type,
                                              const ucg_builtin_config_t *config,
                                              const ucg_group_params_t *group_params,
-                                             const ucg_collective_type_t *coll_type,
+                                             const ucg_collective_params_t *coll_params,
                                              ucg_builtin_plan_t **plan_p)
 {
     ucs_status_t status;
@@ -1138,7 +1145,7 @@ ucs_status_t ucg_builtin_binary_block_create(ucg_builtin_group_ctx_t *ctx,
 
     ucg_builtin_base_params_t base = {
         .ctx = ctx,
-        .coll_type = coll_type,
+        .coll_type = &coll_params->type,
         .topo_type = plan_topo_type,
         .group_params = group_params,
     };
@@ -1159,7 +1166,7 @@ ucs_status_t ucg_builtin_binary_block_create(ucg_builtin_group_ctx_t *ctx,
     /**
      * set my_index firstly,
      * it should be set in ucg_collective_create after plan is created
-     **/
+     */
     binary_block->super.my_index = group_params->member_index;
 
     if (ucg_algo.topo == 0) {
@@ -1190,3 +1197,7 @@ err:
     ucg_builtin_destroy_topo(topo_params);
     return status;
 }
+
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_RABENSEIFNER_BINARY_BLOCK, ucg_builtin_binary_block_create);
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_RABENSEIFNER_BINARY_BLOCK, ucg_builtin_binary_block_create);
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_RABENSEIFNER_BINARY_BLOCK, ucg_builtin_binary_block_create);

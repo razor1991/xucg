@@ -1,6 +1,6 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
- * See file LICENSE for terms.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020-2021.  All rights reserved.
+ * Description: UCG builtin topology information
  */
 
 #include <ucs/debug/log.h>
@@ -16,6 +16,7 @@ static inline void ucg_builtin_topo_set_nodecnt(ucg_builtin_topo_params_t *topo_
 {
     topo_params->node_cnt = ++max_node_idx;
 }
+
 static inline void ucg_builtin_topo_set_localprocs(ucg_builtin_topo_params_t *topo_params,
                                                 ucg_group_member_index_t proc_cnt)
 {
@@ -106,6 +107,7 @@ static void ucg_builtin_topo_init(const ucg_group_params_t *group_params,
     for (node_idx = 0; node_idx < topo_params->node_cnt; node_idx++) {
         ucg_builtin_topo_init_node_leaders(topo_params, init_member_idx, node_idx);
     }
+    
     ucg_builtin_topo_init_local(topo_params, init_member_idx, proc_cnt, pps, socket_idx);
 
     /* rank list on local node */
@@ -114,6 +116,7 @@ static void ucg_builtin_topo_init(const ucg_group_params_t *group_params,
             topo_params->local_members[proc_cnt++] = member_idx;
         }
     }
+
     ucs_assert(proc_cnt == topo_params->num_local_procs);
 }
 
@@ -138,6 +141,7 @@ static  void  ucg_builtin_topo_list(const ucg_group_params_t *group_params,
     ucg_group_member_index_t member_idx;
     ucg_group_member_index_t pps;
     enum ucg_group_member_distance next_distance;
+
     for (member_idx = 0, pps = 0; member_idx < group_params->member_count; member_idx++) {
         next_distance = ucg_builtin_get_distance(group_params, group_params->member_index, member_idx);
         if (next_distance <= UCG_GROUP_MEMBER_DISTANCE_SOCKET) {
@@ -152,6 +156,7 @@ static inline void ucg_builtin_topo_get(const ucg_group_params_t *group_params,
 {
     /* set my own index */
     topo_params->my_index = group_params->member_index;
+
     /* set total number of processes */
     topo_params->num_procs = group_params->member_count;
 }
@@ -202,13 +207,17 @@ ucs_status_t ucg_builtin_query_topo(const ucg_group_params_t *group_params,
     enum ucg_group_member_distance next_distance;
 
     ucg_builtin_topo_get(group_params, topo_params);
+
+    /* obtain node count and num_local_procs */
     for (member_idx = 0; member_idx < group_params->member_count; member_idx++) {
         if (max_node_idx < group_params->node_index[member_idx]) {
             max_node_idx = group_params->node_index[member_idx];
         }
+
         if (group_params->node_index[member_idx] == group_params->node_index[my_rank]) {
             proc_cnt++;
         }
+
         /* calculate process number per socket (pps)*/
         next_distance = ucg_builtin_get_distance(group_params, group_params->member_index, member_idx);
         if (next_distance <= UCG_GROUP_MEMBER_DISTANCE_SOCKET) {
@@ -217,8 +226,8 @@ ucs_status_t ucg_builtin_query_topo(const ucg_group_params_t *group_params,
     }
 
     ucg_builtin_topo_set(topo_params, proc_cnt, max_node_idx, pps);
-
-    /* allocate socket_members & local socket leaders */
+    
+    /* allocate local_members & node_leaders */
     size_t alloc_size = sizeof(ucg_group_member_index_t) * topo_params->num_local_procs;
     topo_params->local_members = (ucg_group_member_index_t *)UCS_ALLOC_CHECK(alloc_size, "rank in same node");
 
@@ -229,7 +238,7 @@ ucs_status_t ucg_builtin_query_topo(const ucg_group_params_t *group_params,
         return UCS_ERR_INVALID_PARAM;
     }
 
-    /* allocate local_members & node_leaders */
+    /* allocate socket_members & local socket leaders */
     alloc_size = sizeof(ucg_group_member_index_t) * topo_params->local.socket.member_cnt;
     topo_params->local.socket.members = (ucg_group_member_index_t *)ucs_malloc(alloc_size, "rank in same socket");
     if (topo_params->local.socket.members == NULL) {
@@ -262,8 +271,10 @@ ucs_status_t ucg_builtin_query_topo(const ucg_group_params_t *group_params,
      * with strong assumption that pps is uniform!
      * */
     ucg_builtin_topo_subroot(socket_idx, topo_params, pps);
+    
     return UCS_OK;
 }
+
 
 void ucg_builtin_destroy_topo(ucg_builtin_topo_params_t *topo_params)
 {
@@ -286,5 +297,6 @@ void ucg_builtin_destroy_topo(ucg_builtin_topo_params_t *topo_params)
         ucs_free(topo_params->local.socket.leaders);
         topo_params->local.socket.leaders = NULL;
     }
+
     ucg_builtin_free((void **)&topo_params);
 }

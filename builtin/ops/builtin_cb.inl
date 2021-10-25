@@ -1,6 +1,6 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
- * See file LICENSE for terms.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021.  All rights reserved.
+ * Notes: See file LICENSE for terms.
  */
 
 #include "builtin_ops.h"
@@ -108,14 +108,15 @@ void ucg_builtin_mpi_reduce_partial(ucg_builtin_request_t *req, size_t offset, c
         if (reduce_buf != NULL) {
             ucs_free(reduce_buf);
         }
+
         return;
     }
 
     /* only the tree algo need the reduce data to be buffered */
     if (req->step->phase->method != UCG_PLAN_METHOD_REDUCE_TERMINAL
         && req->step->phase->method != UCG_PLAN_METHOD_REDUCE_WAYPOINT) {
-        ucs_debug("mpi_reduce_partial, data:%p, length:%lu, recv_buffer:%p, offset:%lu, dt_len:%lu",
-                  data, length, req->step->recv_buffer, offset, dt_len);
+        ucs_debug("mpi_reduce_partial, data:%p, length:%lu, recv_buffer:%p, offset:%lu, dt_len:%lu", data, length,
+            req->step->recv_buffer, offset, dt_len);
         ucg_builtin_mpi_reduce(params->recv.op_ext, data, req->step->recv_buffer + offset,
                                length / dt_len, params->recv.dt_ext);
         return;
@@ -138,6 +139,7 @@ void ucg_builtin_mpi_reduce_partial(ucg_builtin_request_t *req, size_t offset, c
     if (req->pending > 1) {
         return;
     }
+
     uint32_t loop = 0;
     while (loop < req->step->rbuf_count) {
         ucg_builtin_mpi_reduce(params->recv.op_ext, (char *)req->step->reduce_buff + loop * length,
@@ -145,7 +147,6 @@ void ucg_builtin_mpi_reduce_partial(ucg_builtin_request_t *req, size_t offset, c
         loop++;
     }
 }
-
 static UCS_F_ALWAYS_INLINE void ucg_builtin_comp_last_step_cb(ucg_builtin_request_t *req, ucs_status_t status)
 {
     /* Sanity checks */
@@ -248,29 +249,27 @@ static UCS_F_ALWAYS_INLINE int ucg_builtin_comp_send_check_frag_cb(ucg_builtin_r
     return step->iter_offset != UCG_BUILTIN_OFFSET_PIPELINE_READY;
 }
 
-#if ENABLE_UCG_HICOLL
 static int ucg_builtin_inc_comp_recv_one_cb(ucg_builtin_request_t *req,
     uint64_t offset, const void *data, size_t length)
 {
     int ret = 1;
-    ucs_status_t status = inc_comp_recv_one(req, offset, data, length);
+    ucs_status_t status = ucg_inc.inc_comp_recv_one_f(req, offset, data, length);
     if (status != UCS_OK) {
         ret = 0;
     }
     (void)ucg_builtin_comp_step_cb(req, NULL);
     return ret;
 }
-
 static int ucg_builtin_inc_comp_recv_many_cb(ucg_builtin_request_t *req,
     uint64_t offset, const void *data, size_t length)
 {
-    ucs_status_t status = inc_comp_recv_many(req, offset, data, length);
+    ucs_status_t status = ucg_inc.inc_comp_recv_many_f(req, offset, data, length);
     if (status != UCS_OK) {
         return 0;
     }
     return ucg_builtin_comp_step_check_cb(req);
 }
-#endif
+/* inc recv end */
 
 static UCS_F_ALWAYS_INLINE void ucg_builtin_comp_zcopy_check_cb(ucg_builtin_request_t *req)
 {
@@ -298,7 +297,7 @@ static int ucg_builtin_comp_recv_one_cb(ucg_builtin_request_t *req,
 static int ucg_builtin_comp_recv_var_one_cb(ucg_builtin_request_t *req,
     uint64_t offset, const void *data, size_t length)
 {
-    /* the first 64bytes data(payload) is the soure rank */
+    /* the first 64btyes data(payload) is the source rank */
     ucg_group_member_index_t src_rank = *((ucg_group_member_index_t *)data);
 
     size_t recv_dt_len = req->op->super.params.recv.dt_len;
@@ -358,7 +357,7 @@ static int ucg_builtin_comp_recv_noncontig_many_cb(ucg_builtin_request_t *req,
 static int ucg_builtin_comp_recv_var_many_cb(ucg_builtin_request_t *req,
     uint64_t offset, const void *data, size_t length)
 {
-    /* the first 64bytes data(payload) is the soure rank */
+    /* the first 64btyes data(payload) is the source rank */
     ucg_group_member_index_t src_rank = *((ucg_group_member_index_t *)data);
 
     size_t recv_dt_len = req->op->super.params.recv.dt_len;
@@ -622,7 +621,6 @@ static ucs_status_t ucg_builtin_step_select_callbacks(ucg_builtin_plan_phase_t *
                                             ucg_builtin_comp_wait_many_cb;
             }
             break;
-#if ENABLE_UCG_HICOLL
         case UCG_PLAN_METHOD_INC:
             if (is_single_msg && !is_zcopy){
                 *recv_cb = nonzero_length ? ucg_builtin_inc_comp_recv_one_cb :
@@ -632,7 +630,6 @@ static ucs_status_t ucg_builtin_step_select_callbacks(ucg_builtin_plan_phase_t *
                                             ucg_builtin_comp_wait_many_cb;
             }
             break;
-#endif
         case UCG_PLAN_METHOD_ALLGATHER_BRUCK:
             *recv_cb = nonzero_length ? ucg_builtin_comp_recv_many_cb :
                                         ucg_builtin_comp_wait_many_cb;
@@ -687,9 +684,7 @@ static ucs_status_t ucg_builtin_step_select_callbacks(ucg_builtin_plan_phase_t *
 /* send_cb for INC */
 void ucg_builtin_send_inc(ucg_builtin_request_t *req)
 {
-#if ENABLE_UCG_HICOLL
-    inc_send_cb(req);
-#endif
+    ucg_inc.inc_send_cb_f(req);
 }
 
 /* send_cb for alltoall to send discrete elements */
@@ -711,7 +706,6 @@ static void ucg_builtin_send_alltoall(ucg_builtin_request_t *req)
     }
 }
 
-/* To support the negative offset, the maximum memory size is 2GBytes. */
 ucs_status_t ucg_builtin_plummer_check_data_size(size_t dtype_size, int count)
 {
     uint64_t total_size = dtype_size * count;
@@ -719,12 +713,13 @@ ucs_status_t ucg_builtin_plummer_check_data_size(size_t dtype_size, int count)
         ucs_error("The buffer limit supported by the alltoallv plummer algorithm is exceeded.");
         return UCS_ERR_OUT_OF_RANGE;
     }
+
     return UCS_OK;
 }
 
 ucs_status_t ucg_builtin_plummer_check_overflow(int lvalue, int rvalue)
 {
-    if (INT_MAX - lvalue >= rvalue) {
+    if ((INT_MAX - lvalue) >= rvalue) {
         return UCS_OK;
     } else {
         ucs_error("The buffer limit supported by the alltoallv plummer algorithm is exceeded.");
@@ -748,6 +743,50 @@ ucs_status_t ucg_builtin_plummer_check_overflow(int lvalue, int rvalue)
     }  \
 } while (0)
 
+STATIC_GTEST int ucg_builtin_plummer_sum(const int *arr, int n)
+{
+    int i, sum = 0;
+
+    for (i = 0; i < n; i++) {
+        sum += arr[i];
+    }
+    return sum;
+}
+
+STATIC_GTEST void ucg_builtin_plummer_memory_gather(int8_t *new_buf,
+                                                    int8_t *buf,
+                                                    const int *counts,
+                                                    const int *displs,
+                                                    size_t dt_len,
+                                                    int n)
+{
+    int i, buf_len, buf_displ;
+
+    for (i = 0; i < n; i++) {
+        buf_len = counts[i] * dt_len;
+        buf_displ = displs[i] * dt_len;
+        memcpy(new_buf, buf + buf_displ, buf_len);
+        new_buf += buf_len;
+    }
+}
+
+STATIC_GTEST void ucg_builtin_plummer_memory_scatter(int8_t *new_buf,
+                                                    int8_t *buf,
+                                                    const int *counts,
+                                                    const int *displs,
+                                                    size_t dt_len,
+                                                    int n)
+{
+    int i, buf_len, buf_displ;
+
+    for (i = 0; i < n; i++) {
+        buf_len = counts[i] * dt_len;
+        buf_displ = displs[i] * dt_len;
+        memcpy(new_buf + buf_displ, buf, buf_len);
+        buf += buf_len;
+    }
+}
+
 void ucg_builtin_plummer_gather_send_counts_cb(ucg_builtin_request_t *req)
 {
     ucg_builtin_op_step_t *step = req->step;
@@ -760,7 +799,7 @@ void ucg_builtin_plummer_gather_send_counts_cb(ucg_builtin_request_t *req)
         }
         unsigned local_index = step->phase->ex_attr.recv_start_block;
         memcpy(step->recv_buffer + local_index * step->buf_len_unit, step->send_buffer, step->buf_len_unit);
-        req->op->temp_data_buffer = step->recv_buffer; /* Save for future use */
+        req->op->temp_data_buffer = step->recv_buffer; /* Save for next step use */
         /* single ep remote offset = 0 */
         if ( step->phase->ep_cnt == 1) {
             step->recv_buffer += step->buf_len_unit;
@@ -783,8 +822,10 @@ void ucg_builtin_plummer_gather_send_buffers_cb(ucg_builtin_request_t *req)
     /*initialize step recv coll parameters */
     if (step->phase->ex_attr.is_node_leader) {
         int *temp_send_counts = (int *)req->op->temp_data_buffer;
+
         int8_t *init_send_buf = params->send.buf == MPI_IN_PLACE ? (int8_t *)params->recv.buf
                                                                   : (int8_t *)params->send.buf;
+
         unsigned i, j, k;
         for (i =0; i < ppn; i++) {
             k = i * member_cnt;
@@ -806,20 +847,29 @@ void ucg_builtin_plummer_gather_send_buffers_cb(ucg_builtin_request_t *req)
         if (req->op->temp_exchange_buffer== NULL) {
             ucs_fatal("no memory for malloc, total_recv_buffer: %lu", total_recv_buffer);
         }
+        ucg_builtin_plummer_memory_gather(req->op->temp_exchange_buffer, init_send_buf, params->send.counts, params->send.displs, dt_len, member_cnt);
+
         recv_coll_params->init_buf = req->op->temp_exchange_buffer;
-
-        memcpy(recv_coll_params->init_buf, init_send_buf,
-               dt_len * (params->send.counts[member_cnt-1] + params->send.displs[member_cnt-1]));
-
     } else {
         send_coll_params->init_buf = params->send.buf == MPI_IN_PLACE ? (int8_t *)params->recv.buf
                                                                   : (int8_t *)params->send.buf;
+        int total_send_count = ucg_builtin_plummer_sum(params->send.counts, member_cnt);
+        req->op->temp_exchange_buffer = (int8_t *)ucs_malloc(total_send_count * dt_len, "allocate send buffer");
+        if (req->op->temp_exchange_buffer == NULL) {
+            ucs_fatal("no memory for malloc, total_send_buffer:%lu", total_send_count * dt_len);
+        }
 
-        send_coll_params->counts[0] = params->send.counts[member_cnt-1] + params->send.displs[member_cnt-1];
+        ucg_builtin_plummer_memory_gather(req->op->temp_exchange_buffer, send_coll_params->init_buf,
+            params->send.counts, params->send.displs, dt_len, member_cnt);
+            
+        send_coll_params->init_buf = req->op->temp_exchange_buffer;
+        send_coll_params->counts[0] = total_send_count;
         send_coll_params->displs[0] = 0;
+        
         /* initialize step other parameters */
         step->send_buffer = send_coll_params->init_buf;
         step->buffer_length = send_coll_params->counts[0] * dt_len;
+        
         status = ucg_builtin_step_alloc_pack_rank_buffer(step, send_coll_params->counts[0] * dt_len);
         if (status!= UCS_OK) {
             req->plummer_req_status = status;
@@ -880,6 +930,7 @@ void ucg_builtin_plummer_inter_alltoallv_cb(ucg_builtin_request_t *req)
     for (j = 0; j < (node_cnt-1); j++) {
         PLUMMER_CHECK_OVERFLOW(send_coll_params->counts[j], send_coll_params->displs[j]);
         PLUMMER_CHECK_OVERFLOW(recv_coll_params->counts[j], recv_coll_params->displs[j]);
+        
         send_coll_params->displs[j+1] = send_coll_params->counts[j] + send_coll_params->displs[j];
         recv_coll_params->displs[j+1] = recv_coll_params->counts[j] + recv_coll_params->displs[j];
     }
@@ -902,7 +953,6 @@ void ucg_builtin_plummer_inter_alltoallv_cb(ucg_builtin_request_t *req)
         ucg_builtin_free((void **)&temp_send_displs);
         return;
     }
-
 
     size_t send_buf_size = (send_coll_params->counts[node_cnt-1] + send_coll_params->displs[node_cnt-1]) * send_dt_len;
     send_coll_params->init_buf = (int8_t *)ucs_malloc(send_buf_size, "allocate init buffer");
@@ -928,6 +978,7 @@ void ucg_builtin_plummer_inter_alltoallv_cb(ucg_builtin_request_t *req)
         }
     }
     ucg_builtin_free((void **)&temp_send_displs);
+
     PLUMMER_CHECK_DATA_SIZE(send_dt_len, (recv_coll_params->counts[node_cnt-1]+recv_coll_params->displs[node_cnt-1]));
 
     size_t recv_buf_size = (recv_coll_params->counts[node_cnt-1] + recv_coll_params->displs[node_cnt-1]) * send_dt_len;
@@ -936,6 +987,7 @@ void ucg_builtin_plummer_inter_alltoallv_cb(ucg_builtin_request_t *req)
         ucg_builtin_free((void **)&send_coll_params->init_buf);
         ucs_fatal("no memory for malloc, recv_buf_size: %lu", recv_buf_size);
     }
+
     /* copy to myself */
     unsigned local_index = phase->ex_attr.packed_rank;
     memcpy(recv_coll_params->init_buf+recv_coll_params->displs[local_index]*send_dt_len,
@@ -992,6 +1044,7 @@ void ucg_builtin_plummer_scatter_recv_buffers_cb(ucg_builtin_request_t *req)
                 send_coll_params->counts[i] += temp_recv_counts[k++];
             }
         }
+
         for (i = 0; i < (ppn-1); i++) {
             send_coll_params->displs[i+1] = send_coll_params->displs[i] + send_coll_params->counts[i];
         }
@@ -1035,6 +1088,7 @@ void ucg_builtin_plummer_scatter_recv_buffers_cb(ucg_builtin_request_t *req)
         }
 
         int8_t *temp_init_buf = send_coll_params->init_buf;
+
         for (j = 0; j < ppn; j++) {
             for (k = 0; k < node_cnt; k++) {
                 idx1 = k * ppn + j;
@@ -1044,13 +1098,14 @@ void ucg_builtin_plummer_scatter_recv_buffers_cb(ucg_builtin_request_t *req)
                 temp_init_buf += count;
             }
         }
+
         ucg_builtin_free((void **)&temp_send_counts_new);
         ucg_builtin_free((void **)&temp_send_displs_new);
         ucg_builtin_free((void **)&req->op->temp_exchange_buffer1);
 
         req->op->temp_exchange_buffer1 = send_coll_params->init_buf;
-
-        memcpy((int8_t *)params->recv.buf, send_coll_params->init_buf, send_dt_len * send_coll_params->counts[0]);
+        ucg_builtin_plummer_memory_scatter((int8_t *)params->recv.buf, req->op->temp_exchange_buffer1,
+            params->recv.counts, params->recv.displs, send_dt_len, member_cnt);
 
         unsigned send_start_block = phase->ex_attr.start_block;
         unsigned send_num_blocks = phase->ex_attr.num_blocks;
@@ -1070,9 +1125,14 @@ void ucg_builtin_plummer_scatter_recv_buffers_cb(ucg_builtin_request_t *req)
         }
     } else {
         /* initialize recv coll parameters */
-        recv_coll_params->init_buf = (int8_t *)params->recv.buf;
-        recv_coll_params->counts[0] = params->recv.counts[member_cnt-1] + params->recv.displs[member_cnt-1];
+        int total_recv_count = ucg_builtin_plummer_sum(params->recv.counts, member_cnt);
+        recv_coll_params->init_buf = (int8_t *)ucs_malloc(total_recv_count * send_dt_len, "recv buffer");
+        if (recv_coll_params->init_buf == NULL) {
+            ucs_fatal("no memory for malloc, recv_buf_size:%lu", total_recv_count * send_dt_len);
+        }
+        recv_coll_params->counts[0] = total_recv_count;
         recv_coll_params->displs[0] = 0;
+        req->op->temp_exchange_buffer1 = recv_coll_params->init_buf;
     }
 }
 
@@ -1085,6 +1145,7 @@ void ucg_builtin_send_reduce(ucg_builtin_request_t *req)
         memcpy(step->send_buffer, req->op->super.params.recv.buf, step->buffer_length);
     }
 }
+
 /*
  * Below is a list of possible callback functions for operation initialization.
  */
@@ -1137,6 +1198,7 @@ static void ucg_builtin_init_ring(ucg_builtin_op_t *op)
 
     memcpy(step->recv_buffer, step->send_buffer - step->am_header.remote_offset, len);
 }
+
 
 void ucg_builtin_init_inc(ucg_builtin_op_t *op)
 {
@@ -1195,7 +1257,6 @@ static void ucg_builtin_init_pairwise(ucg_builtin_op_t *op)
     ucg_builtin_op_step_t *step = &op->steps[0];
     const ucg_group_params_t *params = ucg_group_get_params(op->super.plan->group);
     size_t proc_count  = params->member_count;
-
     if (op->super.params.send.buf != MPI_IN_PLACE) {
         memcpy(step->recv_buffer, op->super.params.send.buf, step->buffer_length * proc_count);
     }
@@ -1389,6 +1450,7 @@ static void ucg_builtin_finalize_pack_and_unpack(ucg_builtin_request_t *req)
 void ucg_builtin_init_throttled_scatter(ucg_builtin_op_t *op)
 {
     ucg_collective_params_t *params = &(op->super.params);
+
     if (params->send.buf != MPI_IN_PLACE) {
         size_t my_index     = op->super.plan->my_index;
         int send_count      = params->send.counts[my_index];
@@ -1473,7 +1535,6 @@ void ucg_builtin_init_plummer(ucg_builtin_op_t *op)
         int send_count      = params->send.counts[my_index];
         int send_displ      = params->send.displs[my_index];
         int recv_displ      = params->recv.displs[my_index];
-
         if (send_count > 0) {
             uint64_t buffer_len = send_count * params->send.dt_len;
             uint64_t send_buffer_displ = send_displ * params->send.dt_len;
@@ -1483,6 +1544,7 @@ void ucg_builtin_init_plummer(ucg_builtin_op_t *op)
                    ((int8_t *)params->send.buf) + send_buffer_displ, buffer_len);
         }
     }
+
     /* In alltoallv, both remote_offset and am_header.remote_offset initial values are 0.
      * The value is calculated dynamically during message sending and receiving.
      */
@@ -1492,9 +1554,22 @@ void ucg_builtin_init_plummer(ucg_builtin_op_t *op)
     }
 }
 
+static void ucg_builtin_plummer_recv_buffer_redistribute(ucg_builtin_request_t *req)
+{
+    ucg_collective_params_t *params = &(req->op->super.params);
+    ucg_step_idx_ext_t phs_cnt = ((ucg_builtin_plan_t *)req->op->super.plan)->phs_cnt;
+    ucg_builtin_op_step_t *step = &(req->op->steps[phs_cnt-1]);
+
+    if (step->phase->ex_attr.is_node_leader == 0) {
+        ucg_builtin_plummer_memory_scatter((int8_t *)params->recv.buf, step->recv_coll_params->init_buf, params->recv.counts, params->recv.displs, params->send.dt_len, step->phase->ex_attr.member_cnt);
+    }
+}
+
 void ucg_builtin_final_plummer(ucg_builtin_request_t *req)
 {
     ucg_builtin_op_t *op = req->op;
+
+    ucg_builtin_plummer_recv_buffer_redistribute(req);
 
     unsigned step_idx;
     for (step_idx = 0; step_idx < ((ucg_builtin_plan_t *)op->super.plan)->phs_cnt; step_idx++) {
@@ -1505,16 +1580,19 @@ void ucg_builtin_final_plummer(ucg_builtin_request_t *req)
             if (step->phase->send_ep_cnt > 0) {
                 ucg_builtin_free_coll_params(&(step->send_coll_params));
             }
+
             if (step->phase->recv_ep_cnt > 0) {
                 ucg_builtin_free_coll_params(&(step->recv_coll_params));
             }
         }
     }
+
     ucg_builtin_free((void **)&(op->temp_data_buffer));
     ucg_builtin_free((void **)&(op->temp_data_buffer1));
     ucg_builtin_free((void **)&(op->temp_exchange_buffer));
     ucg_builtin_free((void **)&(op->temp_exchange_buffer1));
 }
+
 
 static ucs_status_t ucg_builtin_op_select_callback(ucg_builtin_plan_t *plan,
                                                    int is_send_contig,
@@ -1525,6 +1603,7 @@ static ucs_status_t ucg_builtin_op_select_callback(ucg_builtin_plan_t *plan,
     ucs_info("op select callback, method:%d, send_contig:%d, recv_contig:%d",
               plan->phss[0].method, is_send_contig, is_recv_contig);
     unsigned is_allgather = plan->super.type.modifiers & UCG_GROUP_COLLECTIVE_MODIFIER_ALLGATHER;
+    
     switch (plan->phss[0].method) {
         case UCG_PLAN_METHOD_REDUCE_WAYPOINT:
         case UCG_PLAN_METHOD_REDUCE_TERMINAL:
@@ -1576,18 +1655,22 @@ static ucs_status_t ucg_builtin_op_select_callback(ucg_builtin_plan_t *plan,
             *init_cb  = ucg_builtin_init_ring;
             *final_cb = NULL;
             break;
+
         case UCG_PLAN_METHOD_INC:
             *init_cb  = ucg_builtin_init_inc;
             *final_cb = NULL;
             break;
+
         case UCG_PLAN_METHOD_EXCHANGE:
             *init_cb  = is_allgather ? ucg_builtin_init_gather : ucg_builtin_init_pairwise;
             *final_cb = NULL;
             break;
+
         case UCG_PLAN_METHOD_ALLTOALLV_LADD:
             *init_cb  = ucg_builtin_init_throttled_scatter;
             *final_cb = ucg_builtin_final_throttled_scatter;
             break;
+
         default:
             if (!is_send_contig) {
                 if (!is_recv_contig) {
@@ -1611,19 +1694,19 @@ static ucs_status_t ucg_builtin_op_select_callback(ucg_builtin_plan_t *plan,
         *init_cb = ucg_builtin_init_plummer;
         *final_cb = ucg_builtin_final_plummer;
     }
+
     return UCS_OK;
 }
 
-static void ucg_builtin_step_am_zcopy_comp_step_check_cb(uct_completion_t *self,
-                                                         ucs_status_t status)
+static void ucg_builtin_step_am_zcopy_comp_step_check_cb(uct_completion_t *self)
 {
 
     ucg_builtin_zcomp_t *zcomp = ucs_container_of(self, ucg_builtin_zcomp_t, comp);
     ucg_builtin_request_t *req = zcomp->req;
     zcomp->comp.count          = 1;
 
-    if (ucs_unlikely(status != UCS_OK)) {
-        ucg_builtin_comp_last_step_cb(req, status);
+    if (ucs_unlikely(self->status != UCS_OK)) {
+        ucg_builtin_comp_last_step_cb(req, self->status);
     } else {
         ucg_builtin_comp_zcopy_check_cb(req);
     }
@@ -1643,6 +1726,7 @@ static inline ucs_status_t ucg_builtin_step_zcopy_prep(ucg_builtin_op_step_t *st
     while (zcomp_cnt--) {
         zcomp->comp.func  = ucg_builtin_step_am_zcopy_comp_step_check_cb;
         zcomp->comp.count = 1;
+        zcomp->comp.status = UCS_OK;
         zcomp++;
     }
 
@@ -1677,6 +1761,7 @@ static inline ucs_status_t ucg_builtin_dynamic_zcopy_prep(ucg_builtin_op_step_t 
         while(zcomp_cnt--) {
             zcomp->comp.func = ucg_builtin_step_am_zcopy_comp_step_check_cb;
             zcomp->comp.count = 1;
+            zcomp->comp.status = UCS_OK;
             zcomp++;
         }
 
@@ -1695,8 +1780,10 @@ static inline ucs_status_t ucg_builtin_dynamic_zcopy_prep(ucg_builtin_op_step_t 
         step->zcopy.num_store = step->zcopys[ep_index].num_store;
         step->zcopy.zcomp = step->zcopys[ep_index].zcomp;
     }
+
     return UCS_OK;
 }
+
 static ucs_status_t ucg_builtin_optimize_bcopy_to_zcopy(ucg_builtin_op_t *op)
 {
     /* This function was called because we want to "upgrade" a bcopy-send to
@@ -1749,12 +1836,14 @@ static ucs_status_t ucg_builtin_op_consider_optimization(ucg_builtin_op_t *op,
     ucg_builtin_op_step_t *step = NULL;
     ucg_step_idx_ext_t  step_idx = 0;
     unsigned  opt_flag = config->bcopy_to_zcopy_opt;
+
     /* Currently, this function is shielded in the
      * alltoallv scenario because the buffer length changes.
      */
     if (op->steps[0].phase->method == UCG_PLAN_METHOD_ALLTOALLV_LADD) {
         opt_flag = 0;
     }
+
     if (opt_flag && !op->send_dt) {
         do {
             step = &op->steps[step_idx++];
@@ -1773,3 +1862,4 @@ static ucs_status_t ucg_builtin_op_consider_optimization(ucg_builtin_op_t *op,
     op->opt_cnt = 0;
     return UCS_OK;
 }
+

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
- * See file LICENSE for terms.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020-2021.  All rights reserved.
+ * Description: UCG builtin topology information
  */
 
 #ifndef UCG_BUILTIN_TOPO_H
@@ -37,5 +37,4 @@ ucs_status_t ucg_builtin_query_topo(const ucg_group_params_t *group_params,
                                     ucg_builtin_topo_params_t *topo_params);
 
 void ucg_builtin_destroy_topo(ucg_builtin_topo_params_t *topo_params);
-
 #endif

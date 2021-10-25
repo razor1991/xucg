@@ -1,12 +1,12 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2020. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021. All rights reserved.
  * Description: UCG group
  */
 
 #include <ucg/builtin/plan/builtin_plan.h>
 #include <ucg/builtin/plan/builtin_plan_cache.h>
 #include <ucg/builtin/plan/builtin_algo_decision.h>
-
+#include <ucg/builtin/plan/builtin_algo_mgr.h>
 #include <ucg/api/ucg_mpi.h>
 #include <ucp/core/ucp_ep.inl>
 #include <ucp/core/ucp_worker.h>
@@ -111,6 +111,12 @@ ucs_status_t ucg_init_group(ucg_worker_h worker,
     memcpy(new_group->params.node_index, params->node_index, nodenumber_size);
     memset(new_group + 1, 0, ctx->total_planner_sizes);
     new_group->params.topo_args = params->topo_args;
+
+    /* init some inc params */
+    new_group->params.inc_param.feature_used    = 0;
+    new_group->params.inc_param.switch_info_got = 0;
+    new_group->params.inc_param.req_id          = 1;
+
     return UCS_OK;
 }
 
@@ -176,18 +182,14 @@ ucs_status_t ucg_group_create(ucg_worker_h worker,
         goto cleanup_planners;
     }
 
-#if ENABLE_UCG_HICOLL
     /*
      * INC initialization, generate random comm_id,
      * subroot send query to root and root reply notify
      */
-    ucg_builtin_config_t *config;
-    config = (ucg_builtin_config_t *)ctx->planners[0].plan_component->plan_config;
-    init_inc_params(new_group);
-    if (inc_enable(config)) {
-        (void)inc_create(new_group, config, params);
+    ucg_builtin_config_t *config = (ucg_builtin_config_t *)ctx->planners[0].plan_component->plan_config;
+    if (UCG_BUILTIN_INC_CHECK(inc_enable, config)) {
+        (void)ucg_inc.inc_create_f(new_group, config, params);
     }
-#endif
 
     status = UCS_STATS_NODE_ALLOC(&new_group->stats,
                                   &ucg_group_stats_class, worker->stats, "-%p", new_group);
@@ -203,6 +205,7 @@ ucs_status_t ucg_group_create(ucg_worker_h worker,
 cleanup_planners:
     ucg_group_clean_planners(ctx, idx, new_group);
     new_group = NULL;
+
 cleanup_none:
     UCP_WORKER_THREAD_CS_EXIT_CONDITIONAL(worker);
     return status;
@@ -245,19 +248,17 @@ void ucg_group_destroy(ucg_group_h group)
     while (!ucs_queue_is_empty(&group->pending)) {
         ucg_group_progress(group);
     }
-#if ENABLE_UCG_HICOLL
+
     /*
      * INC finalize, clear switch
      * subroot send kill to root and root reply kill to subroot clear switch
      */
-    ucs_status_t status;
-    if (inc_available(group)) {
-        status = inc_destroy(group, 0);
-        if (status != UCS_OK) {
+    if (UCG_BUILTIN_INC_CHECK(inc_available, group)) {
+        if (ucg_inc.inc_destroy_f(group, 0) != UCS_OK) {
             ucs_info(" INC failed. INC destroy failed\n");
         }
     }
-#endif
+
 #if ENABLE_MT
     ucg_worker_h worker = group->worker;
     UCP_WORKER_THREAD_CS_ENTER_CONDITIONAL(worker);
@@ -336,17 +337,21 @@ STATIC_GTEST ucs_status_t ucg_collective_check_variable_length(ucg_group_h group
                                                                const ucg_collective_params_t *coll_params)
 {
     ucs_status_t status;
+
     ucg_group_member_index_t member_count = ucg_group_get_member_count(group);
+
     status = ucg_collective_check_counts(coll_params->send.counts, member_count);
     if (status != UCS_OK) {
         ucs_error("The send counts cannot be less than 0.");
         return status;
     }
+
     status = ucg_collective_check_counts(coll_params->recv.counts, member_count);
     if (status != UCS_OK) {
         ucs_error("The receive counts cannot be less than 0.");
         return status;
     }
+
     return status;
 }
 
@@ -370,9 +375,11 @@ ucs_status_t ucg_collective_check_input(ucg_group_h group,
     if (group == NULL || params == NULL || coll == NULL) {
         return UCS_ERR_INVALID_PARAM;
     }
+
     ucs_status_t status = ucg_collective_check_params(group, params);
     return status;
 }
+
 UCS_PROFILE_FUNC(ucs_status_t, ucg_collective_create,
         (group, params, coll), ucg_group_h group,
         ucg_collective_params_t *params, ucg_coll_h *coll)
@@ -381,6 +388,7 @@ UCS_PROFILE_FUNC(ucs_status_t, ucg_collective_create,
     ucg_op_t *op = NULL;
     ucs_status_t status;
     int algo;
+
     UCP_WORKER_THREAD_CS_ENTER_CONDITIONAL(group->worker);
 
     status = ucg_collective_check_input(group, params, coll);
@@ -391,11 +399,22 @@ UCS_PROFILE_FUNC(ucs_status_t, ucg_collective_create,
     algo = ucg_builtin_algo_decision(&group->params, params);
 
     plan = ucg_builtin_pcache_find(group, algo, params);
-
     if (ucs_likely(plan != NULL)) {
         ucs_list_for_each(op, &plan->op_head, list) {
             if (!memcmp(&op->params, params, sizeof(*params)) &&
                 ucg_builtin_op_can_reuse(plan, op, params)) {
+                /* In actual application, there are two scenarios:
+                 *    1. repeated registration with the same buffer address but different buffer lengths.
+                 *    2. before the MR dereg operation is performed, the memory has been release. If the
+                 *    start address of the memory allocated next time is the same, the op reuse executed,
+                 *    but previously registered MR has become invalid, so re-register here.
+                 */
+                if (params->type.modifiers == ucg_predefined_modifiers[UCG_PRIMITIVE_BCAST]) {
+                    status = ucg_builtin_op_md_mem_rereg(op);
+                    if (status != UCS_OK) {
+                        goto out;
+                    }
+                }
                 status = UCS_OK;
                 goto op_found;
             }
@@ -440,12 +459,14 @@ plan_found:
     if (status != UCS_OK) {
         goto out;
     }
-    /* limit the length of op list in plan to avoid huge const in reuse check. */
+
+    /* limit the length of op list in plan to avoid huge cost in reuse check. */
     while (plan->op_cnt >= UCG_GROUP_MAX_OPS_IN_PLAN) {
         ucg_op_t*op_head = ucs_list_extract_head(&plan->op_head, ucg_op_t, list);
         ucg_discard(op_head);
         plan->op_cnt--;
     }
+
     ucs_list_add_head(&plan->op_head, &op->list);
     plan->op_cnt++;
     op->params = *params;
@@ -654,11 +675,8 @@ ucs_status_t ucg_plan_connect(ucg_group_h group, ucg_group_member_index_t index,
     ucg_groups_t *gctx = UCG_WORKER_TO_GROUPS_CTX(group->worker);
     int ret = 0;
     khiter_t iter = kh_get(ucg_groups_ep, &gctx->eps, global_index);
-    int reuse_ep = 1;
-#if ENABLE_UCG_HICOLL
-    reuse_ep = (inc_available(group) == 0 || inc_used(&group->params) == 0);
-#endif
-    if (iter != kh_end(&gctx->eps) && reuse_ep) {
+
+    if (iter != kh_end(&gctx->eps) && (UCG_BUILTIN_INC_CHECK(inc_available, group) == 0 || UCG_BUILTIN_INC_CHECK(inc_used, &group->params) == 0)) {
         /* Use the cached connection */
         ucp_ep = kh_value(&gctx->eps, iter);
     } else {

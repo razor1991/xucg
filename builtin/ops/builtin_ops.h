@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2020.  ALL RIGHTS RESERVED.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021.  All rights reserved.
  * Notes: See file LICENSE for terms.
  */
 
@@ -7,9 +7,12 @@
 #define UCG_BUILTIN_OPS_H_
 
 #include "../plan/builtin_plan.h"
+#include <ucg/builtin/plan/builtin_algo_mgr.h>
 #include <ucp/core/ucp_request.h>
+#include <ucp/dt/dt_contig.h>
 
 BEGIN_C_DECLS
+
 /*
  * The built-in collective operations are composed of one or more steps.
  * In each step, we apply a method to a subgroup of peer processes.
@@ -286,6 +289,7 @@ size_t ucg_builtin_get_dt_len(ucp_dt_generic_t *dt_gen);
 ucs_status_t ucg_builtin_step_alloc_pack_rank_buffer(ucg_builtin_op_step_t *step,
                                                      size_t buffer_length);
 void ucg_builtin_step_free_pack_rank_buffer(ucg_builtin_op_step_t *step);
+
 /*
  * Incoming messages are processed for one of the collective operations
  * currently outstanding - arranged in as a window (think: TCP) of slots.
@@ -343,3 +347,4 @@ struct ucg_builtin_comp_slot {
 END_C_DECLS
 
 #endif
+

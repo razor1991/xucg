@@ -1,6 +1,6 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
- * See file LICENSE for terms.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021.  All rights reserved.
+ * Description: UCG builtin plan
  */
 
 #ifndef UCG_BUILTIN_PLAN_H
@@ -50,10 +50,12 @@ typedef struct ucg_builtin_algorithm {
     uint16_t  ladd  : 1;       /* ladd 0:false 1:yes*/
     uint16_t   plummer : 1;       /*plummer 0:false 1:yes*/
     uint16_t topo   : 1;       /* topo       0: standard tree   1: topo-aware tree */
-    /* topo_level =                                      */
-    /* UCG_GROUP_HIERARCHY_LEVEL_NODE:     node-aware    */
-    /* UCG_GROUP_HIERARCHY_LEVEL_SOCKET:   socket-aware  */
-    /* UCG_GROUP_HIERARCHY_LEVEL_L3CACHE:  L3cache-aware */
+    /* 
+     * topo_level =
+     * UCG_GROUP_HIERARCHY_LEVEL_NODE:     node-aware
+     * UCG_GROUP_HIERARCHY_LEVEL_SOCKET:   socket-aware
+     * UCG_GROUP_HIERARCHY_LEVEL_L3CACHE:  L3cache-aware 
+     */
     uint16_t   topo_level : 2;
     uint16_t   reserved : 2;
     uint8_t  feature_flag; /* @ref enum ucg_builtin_algorithm_feature */
@@ -151,12 +153,13 @@ enum ucg_builtin_allreduce_algorithm {
     UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_RECURSIVE_AND_KMTREE  = 6, /* Topo-aware Recursive (with K-nomial tree for intra node, ppn inside socket) */
     UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_KMTREE                  = 7, /* Topo-aware FANIN-FANOUT (with K-nomial tree for intra node, ppn inside node) */
     UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_KMTREE                = 8, /* Topo-aware FANIN-FANOUT (with K-nomial tree for intra node, ppn inside socket) */
-    UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_INC                     = 9,
-    UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_INC                   = 10,
-    UCG_ALGORITHM_ALLREDUCE_NAP                                = 11,
-    UCG_ALGORITHM_ALLREDUCE_RABENSEIFNER_BINARY_BLOCK          = 12,
-    UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_RABENSEIFNER_BINARY_BLOCK = 13,
-    UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_RABENSEIFNER_BINARY_BLOCK = 14,
+    
+    UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_INC                     = 9, /* Node-aware In Network Computing (INC) */
+    UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_INC                   = 10, /* Socket-aware In Network Computing (INC) */
+    UCG_ALGORITHM_ALLREDUCE_NAP                                = 11, /* Node-Aware Parallel algorithm (NAP) */
+    UCG_ALGORITHM_ALLREDUCE_RABENSEIFNER_BINARY_BLOCK          = 12, /* Rabenseifner's algorithm (binary block) */
+    UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_RABENSEIFNER_BINARY_BLOCK = 13, /* Rabenseifner's algorithm (node aware binary block) */
+    UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_RABENSEIFNER_BINARY_BLOCK = 14, /*  Rabenseifner's algorithm (socket aware binary block) */
     UCG_ALGORITHM_ALLREDUCE_LAST,
 };
 
@@ -169,9 +172,9 @@ enum ucg_builtin_barrier_algorithm {
     UCG_ALGORITHM_BARRIER_SOCKET_AWARE_RECURSIVE_AND_KMTREE  = 5, /* Topo-aware Recursive (with K-nomial tree for intra node, ppn inside socket) */
     UCG_ALGORITHM_BARRIER_NODE_AWARE_KMTREE                  = 6, /* Topo-aware FANIN-FANOUT (with K-nomial tree for intra node, ppn inside node) */
     UCG_ALGORITHM_BARRIER_SOCKET_AWARE_KMTREE                = 7, /* Topo-aware FANIN-FANOUT (with K-nomial tree for intra node, ppn inside socket) */
-    UCG_ALGORITHM_BARRIER_NODE_AWARE_INC                     = 8,
-    UCG_ALGORITHM_BARRIER_SOCKET_AWARE_INC                   = 9,
-    UCG_ALGORITHM_BARRIER_NAP                                = 10,
+    UCG_ALGORITHM_BARRIER_NODE_AWARE_INC                     = 8, /* Node-aware In Network Computing (INC) */
+    UCG_ALGORITHM_BARRIER_SOCKET_AWARE_INC                   = 9, /* Socket-aware In Network Computing (INC) */
+    UCG_ALGORITHM_BARRIER_NAP                                = 10, /* Node-Aware Parallel algorithm (NAP) */
     UCG_ALGORITHM_BARRIER_LAST,
 };
 
@@ -208,18 +211,18 @@ typedef struct ucg_builtin_plan_extra_attr {
     unsigned local_first_idx;         /* first step index  for local plan */
     unsigned is_inequal;              /* different block between local and peer side*/
     unsigned packed_rank;             /* local rank information */
-    unsigned is_node_leader;          /* indicates whether the node leader is the node leader */
-    unsigned is_variable_len;         /* indicates whether the length is variable */
-    unsigned is_plummer;              /* indicates whether plummer algorithm */
+    unsigned is_node_leader;          /* indicates whether the node leader is the node leader. */
+    unsigned is_variable_len;         /* indicates whether the length is variable. */
+    unsigned is_plummer;              /* indicates whether plummer algorithm. */
     unsigned ppn;                     /* number of processes on a node */
 } ucg_builtin_plan_extra_attr_t;
 struct ucg_builtin_plan_phase;
 typedef ucs_status_t (*ucg_builtin_init_phase_by_step_cb_t)(struct ucg_builtin_plan_phase *phase,
                                                             const ucg_collective_params_t *coll_params);
-
 /* for binary block rabenseifner algorithms requires group information */
 typedef struct ucg_builtin_index_group {
     ucg_group_member_index_t    my_index;
+
     unsigned cur_group_begin_index;
     unsigned cur_group_process_cnt;
     unsigned next_group_begin_index;
@@ -231,6 +234,7 @@ typedef struct ucg_builtin_index_group {
 
     unsigned local_group_index;
     unsigned local_peer_ahead_group;
+
     unsigned recv_block_index;  /* receive from ahead group block index */
 } ucg_builtin_index_group_t;
 
@@ -258,15 +262,19 @@ typedef struct ucg_builtin_plan_phase {
     uct_md_h                          md;            /* memory (registration) domain */
     const uct_md_attr_t              *md_attr;       /* memory domain attributes */
     const uct_iface_attr_t           *ep_attr;       /* endpoint attributes */
+    
     ucg_builtin_plan_extra_attr_t     ex_attr;       /* plan extra attributes */
+    
     /* flag for swap recv buffer and data when op is non commutative */
     unsigned                          is_swap;
     int                               segmented;     /* 1: message to receive is segmented;0: message to receive is not segmented. */
     int8_t                           *recv_cache_buffer; /* temp buffer to receive segmented messages. */
 
     ucp_ep_h                         *ucp_eps;       /* ucp_ep related with this phase(used for release) */
+    
     /* layout for multi_eps : s s s | r r */
     ucg_builtin_tl_threshold_t       *ep_thresh;   /* threshold for every uct_ep*/
+
 #if ENABLE_DEBUG_DATA
     ucg_group_member_index_t         *indexes;       /* array corresponding to EPs */
 #endif
@@ -310,7 +318,7 @@ ucs_status_t ucg_builtin_NAP_create(ucg_builtin_group_ctx_t *ctx,
                                     enum ucg_builtin_plan_topology_type plan_topo_type,
                                     const ucg_builtin_config_t *config,
                                     const ucg_group_params_t *group_params,
-                                    const ucg_collective_type_t *coll_type,
+                                    const ucg_collective_params_t *coll_params,
                                     ucg_builtin_plan_t **plan_p);
 
 typedef struct ucg_builtin_binomial_tree_config {
@@ -320,6 +328,7 @@ typedef struct ucg_builtin_binomial_tree_config {
     unsigned degree_intra_fanin;
 } ucg_builtin_binomial_tree_config_t;
 extern ucs_config_field_t ucg_builtin_binomial_tree_config_table[];
+
 
 typedef struct ucg_builtin_binomial_tree_params {
     ucg_builtin_group_ctx_t *ctx;
@@ -333,11 +342,12 @@ typedef struct ucg_builtin_binomial_tree_params {
     int tree_degree_intra_fanin;
 } ucg_builtin_binomial_tree_params_t;
 
+
 ucs_status_t ucg_builtin_binomial_tree_create(ucg_builtin_group_ctx_t *ctx,
                                               enum ucg_builtin_plan_topology_type plan_topo_type,
                                               const ucg_builtin_config_t *config,
                                               const ucg_group_params_t *group_params,
-                                              const ucg_collective_type_t *coll_type,
+                                              const ucg_collective_params_t *coll_params,
                                               ucg_builtin_plan_t **plan_p);
 
 typedef struct ucg_builtin_recursive_config {
@@ -348,7 +358,7 @@ ucs_status_t ucg_builtin_recursive_create(ucg_builtin_group_ctx_t *ctx,
                                           enum ucg_builtin_plan_topology_type plan_topo_type,
                                           const ucg_builtin_config_t *config,
                                           const ucg_group_params_t *group_params,
-                                          const ucg_collective_type_t *coll_type,
+                                          const ucg_collective_params_t *coll_params,
                                           ucg_builtin_plan_t **plan_p);
 
 ucs_status_t ucg_builtin_recursive_connect(ucg_builtin_group_ctx_t *ctx,
@@ -371,7 +381,7 @@ ucs_status_t ucg_builtin_binary_block_create(ucg_builtin_group_ctx_t *ctx,
                                              enum ucg_builtin_plan_topology_type plan_topo_type,
                                              const ucg_builtin_config_t *config,
                                              const ucg_group_params_t *group_params,
-                                             const ucg_collective_type_t *coll_type,
+                                             const ucg_collective_params_t *coll_params,
                                              ucg_builtin_plan_t **plan_p);
 
 void ucg_builtin_free(void **p);
@@ -411,9 +421,9 @@ ucs_status_t ucg_builtin_Plummer_create(ucg_builtin_group_ctx_t *ctx,
                                         const enum ucg_builtin_plan_topology_type plan_topo_type,
                                         const ucg_builtin_config_t *config,
                                         const ucg_group_params_t *group_params,
-                                        const ucg_collective_type_t *coll_type,
                                         const ucg_collective_params_t *coll_params,
                                         ucg_builtin_plan_t **plan_p);
+
 
 /* configuration for tree family */
 typedef struct ucg_builtin_trees_config {
@@ -434,27 +444,11 @@ typedef struct ucg_builtin_ring_config {
     unsigned factor;
 } ucg_builtin_ring_config_t;
 
-typedef struct ucg_inc_config {
-    int enable;
-    uint16_t comm_id_control;
-    uint16_t tag;
-    uint16_t tag_low32;
-    uint8_t query_hop;
-    uint8_t notify_hop;
-    uint32_t kill_hop;
-    uint32_t tag_high32;
-    int max_data_size;
-    int node_under_tor;
-    int socket_count;
-    unsigned header_under_tor;
-    uint64_t job_id;
-} ucg_inc_config_t;
-
 ucs_status_t ucg_builtin_ring_create(ucg_builtin_group_ctx_t *ctx,
                                      enum ucg_builtin_plan_topology_type plan_topo_type,
                                      const ucg_builtin_config_t *config,
                                      const ucg_group_params_t *group_params,
-                                     const ucg_collective_type_t *coll_type,
+                                     const ucg_collective_params_t *coll_params,
                                      ucg_builtin_plan_t **plan_p);
 
 ucs_status_t ucg_topo_neighbor_create(ucg_builtin_group_ctx_t *ctx,
@@ -464,6 +458,21 @@ ucs_status_t ucg_topo_neighbor_create(ucg_builtin_group_ctx_t *ctx,
                                       const ucg_collective_type_t *coll_type,
                                       ucg_builtin_plan_t **plan_p);
 
+typedef struct ucg_inc_config {
+    int enable;
+    uint16_t comm_id_control;
+    uint16_t tag;
+    uint16_t tag_low32;
+    uint8_t query_hop;
+    uint8_t notify_hop;
+    uint8_t kill_hop;
+    uint32_t tag_high32;
+    int max_data_size;
+    int node_under_tor;
+    int socket_count;
+    unsigned header_under_tor;
+    uint64_t job_id;
+} ucg_inc_config_t;
 extern ucs_config_field_t ucg_inc_config_table[]; /* INC configure table */
 
 struct ucg_builtin_config {
@@ -471,10 +480,8 @@ struct ucg_builtin_config {
 
     ucg_builtin_binomial_tree_config_t bmtree;
     ucg_builtin_recursive_config_t     recursive;
-    ucg_builtin_trees_config_t     trees;
-#if ENABLE_UCG_HICOLL
     ucg_inc_config_t               inc;
-#endif
+    ucg_builtin_trees_config_t     trees;
     ucg_builtin_NAP_config_t       NAP;
     ucg_builtin_binary_block_config_t binary_block;
     unsigned                       cache_size;
@@ -489,7 +496,6 @@ struct ucg_builtin_config {
     double                         barrier_algorithm;
     double                         alltoallv_algorithm;
     unsigned                       pipelining;
-
     unsigned                       max_msg_list_size;
     unsigned                       throttle_factor;
     int                            reduce_consistency;  /* reduce operate result consistency flag, default is n */
@@ -611,6 +617,7 @@ unsigned ucg_builtin_calculate_ppx(const ucg_group_params_t *group_params,
 
 ucs_status_t ucg_builtin_destroy_plan(ucg_builtin_plan_t *plan, ucg_group_h group);
 
+
 ucs_status_t ucg_builtin_check_non_aware_Raben(const ucg_group_params_t *group_params);
 
 ucg_group_member_index_t ucg_builtin_get_local_index(ucg_group_member_index_t global_index,
@@ -618,6 +625,7 @@ ucg_group_member_index_t ucg_builtin_get_local_index(ucg_group_member_index_t gl
                                                      ucg_group_member_index_t member_cnt);
 
 int ucg_is_allreduce_consistency(const ucg_builtin_group_ctx_t *ctx);
+
 
 short ucg_get_tree_buffer_pos(ucg_group_member_index_t myrank,
                               ucg_group_member_index_t uprank,
@@ -631,19 +639,6 @@ int ucg_builtin_need_calate_position(const ucg_collective_type_t *coll,
                                      const ucg_builtin_group_ctx_t *ctx,
                                      enum ucg_builtin_plan_topology_type tree_topo);
 
-int inc_get_header_size();
-void init_inc_params(void *ucg_group);
-ucs_status_t inc_create(void *ucg_group, void *ucg_config, const void *ucg_params);
-ucs_status_t inc_destroy(void *ucg_group, uint8_t fail_cause);
-ucs_status_t inc_check_set_packet_para(void *group, void *params);
-ucs_status_t ucg_builtin_add_inc(void *tree, void *phase, const void *params, uct_ep_h **eps,
-    unsigned *phs_inc_cnt, unsigned *step_inc_cnt, unsigned ppx, enum ucg_group_hierarchy_level topo_level);
-void inc_send_cb(void *builtin_req);
-ucs_status_t inc_comp_recv_one(void *req, uint64_t offset, const void *data, size_t length);
-ucs_status_t inc_comp_recv_many(void *req, uint64_t offset, const void *data, size_t length);
-size_t inc_enable(void *builtin_config);
-size_t inc_available(const void *group);
-size_t inc_used(const void *ucg_params);
 
 END_C_DECLS
 

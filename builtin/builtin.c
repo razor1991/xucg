@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021.  All rights reserved.
  * Description: Algorithm acceleration component architecture of UCG
  * Notes: See file LICENSE for terms.
  */
@@ -14,6 +14,7 @@
 #include "ops/builtin_ops.h"
 #include "plan/builtin_plan.h"
 #include "plan/builtin_plan_cache.h"
+#include "plan/builtin_algo_mgr.h"
 
 #define CACHE_SIZE 1000
 #define RECURSIVE_FACTOR 2
@@ -24,20 +25,56 @@
 #define UCG_BUILTIN_SUPPORT_MASK (UCG_GROUP_COLLECTIVE_MODIFIER_AGGREGATE |\
                                   UCG_GROUP_COLLECTIVE_MODIFIER_BROADCAST)
 
+ucs_config_field_t ucg_inc_config_table[] = {
+    {"INC_ENABLE", "0", "Enable INC or not.\n",
+     ucs_offsetof(ucg_inc_config_t, enable), UCS_CONFIG_TYPE_INT},
+    {"INC_COMMDID_CONTROL", "0x0001", "The comm_id for control packet in INC.\n",
+     ucs_offsetof(ucg_inc_config_t, comm_id_control), UCS_CONFIG_TYPE_HEX},
+    {"INC_TAG", "0x4433", "The tag for INC message.\n",
+     ucs_offsetof(ucg_inc_config_t, tag), UCS_CONFIG_TYPE_HEX},
+    {"INC_TAG_LOW", "0x2211", "The low32 tag for INC message.\n",
+     ucs_offsetof(ucg_inc_config_t, tag_low32), UCS_CONFIG_TYPE_HEX},
+    {"INC_TAG_HIGH", "0x88776655", "The high32 tag for INC message.\n",
+     ucs_offsetof(ucg_inc_config_t, tag_high32), UCS_CONFIG_TYPE_HEX}, 
+    {"INC_QUERY_HOP", "0x0", "The query hop for control message.\n",
+     ucs_offsetof(ucg_inc_config_t, query_hop), UCS_CONFIG_TYPE_HEX},
+    {"INC_NOTIFY_HOP", "0x1", "The notify hop for control message.\n",
+     ucs_offsetof(ucg_inc_config_t, notify_hop), UCS_CONFIG_TYPE_HEX},
+    {"KILL_HOP", "0x4", "The kill hop for control message.\n",
+     ucs_offsetof(ucg_inc_config_t, kill_hop), UCS_CONFIG_TYPE_HEX},
+    {"MAX_DATA_SIZE", "256", "The Max size supported by INC.\n",
+     ucs_offsetof(ucg_inc_config_t, max_data_size), UCS_CONFIG_TYPE_INT},
+    {"NODE_UNDER_TOR", "2", "The node number under tor.\n",
+     ucs_offsetof(ucg_inc_config_t, node_under_tor), UCS_CONFIG_TYPE_INT},
+    {"SOCKET_COUNT", "2", "The number of socket in one node.\n",
+     ucs_offsetof(ucg_inc_config_t, socket_count), UCS_CONFIG_TYPE_INT},
+    {"HEADER_UNDER_TOR", "0", "The header rank under tor.\n",
+     ucs_offsetof(ucg_inc_config_t, header_under_tor), UCS_CONFIG_TYPE_UINT},
+    {"JOB_ID", "0", "job ID of scheduler.\n",
+     ucs_offsetof(ucg_inc_config_t, job_id), UCS_CONFIG_TYPE_ULONG},
+    {NULL}
+};
+
+ucs_config_field_t ucg_builtin_NAP_config_table[] = {
+    {"NUM_NAP_GROUP", "1", "number of NAP group for non-power-of-two ppn.\n",
+     ucs_offsetof(ucg_builtin_NAP_config_t, num_NAP_group), UCS_CONFIG_TYPE_UINT},
+
+    {"NAP_INIT_ALLREDUCE_METHOD", "0", "initial allreduce method for NAP, 0: recursive; 1: tree.\n",
+     ucs_offsetof(ucg_builtin_NAP_config_t, init_allreduce_method), UCS_CONFIG_TYPE_UINT},
+
+    {"NAP_FINAL_ALLREDUCE_METHOD", "0", "initial allreduce method for NAP, 0: recursive; 1: tree.\n",
+     ucs_offsetof(ucg_builtin_NAP_config_t, final_allreduce_method), UCS_CONFIG_TYPE_UINT},
+    {NULL}
+};
+
 static ucs_config_field_t ucg_builtin_config_table[] = {
 
     {"BMTREE_", "", NULL, ucs_offsetof(ucg_builtin_config_t, bmtree),
      UCS_CONFIG_TYPE_TABLE(ucg_builtin_binomial_tree_config_table)},
-#if ENABLE_UCG_HICOLL
+
     {"INC_", "", NULL, ucs_offsetof(ucg_builtin_config_t, inc),
     UCS_CONFIG_TYPE_TABLE(ucg_inc_config_table)},
 
-    {"NAP_", "", NULL, ucs_offsetof(ucg_builtin_config_t, NAP),
-    UCS_CONFIG_TYPE_TABLE(ucg_builtin_NAP_config_table)},
-
-    {"LADD_THEROTTLED_FACTOR", "0", "throttle factor",
-    ucs_offsetof(ucg_builtin_config_t, throttle_factor), UCS_CONFIG_TYPE_UINT},
-#endif
     {"BCAST_ALGORITHM", "0", "Bcast algorithm",
      ucs_offsetof(ucg_builtin_config_t, bcast_algorithm), UCS_CONFIG_TYPE_DOUBLE},
 
@@ -52,6 +89,9 @@ static ucs_config_field_t ucg_builtin_config_table[] = {
 
     {"TREES_", "", NULL, ucs_offsetof(ucg_builtin_config_t, trees),
     UCS_CONFIG_TYPE_TABLE(ucg_builtin_trees_config_table)},
+
+    {"NAP_", "", NULL, ucs_offsetof(ucg_builtin_config_t, NAP),
+    UCS_CONFIG_TYPE_TABLE(ucg_builtin_NAP_config_table)},
 
     {"MAX_MSG_LIST_SIZE", "40", "Largest loop count of msg process function",
      ucs_offsetof(ucg_builtin_config_t, max_msg_list_size), UCS_CONFIG_TYPE_UINT},
@@ -74,6 +114,9 @@ static ucs_config_field_t ucg_builtin_config_table[] = {
 
     {"LARGE_DATATYPE_THRESHOLD", "32", "Large datatype threshold",
      ucs_offsetof(ucg_builtin_config_t, large_datatype_threshold), UCS_CONFIG_TYPE_UINT},
+
+    {"LADD_THEROTTLED_FACTOR", "0", "throttle factor",
+    ucs_offsetof(ucg_builtin_config_t, throttle_factor), UCS_CONFIG_TYPE_UINT},
 
     /* To ensure consistency of allreduce calculation results,you need to enable this flag.
     By default, this function is disabled. If this flag is enabled, the performance of the
@@ -155,6 +198,7 @@ static ucs_status_t ucg_builtin_init_ctx(ucg_builtin_ctx_t **ctx)
     return UCS_OK;
 }
 
+
 static ucs_status_t ucg_builtin_extend_slots(ucg_builtin_ctx_t *ctx, unsigned max_size)
 {
     if (ctx->slots_total >= max_size) {
@@ -187,12 +231,14 @@ cleanup:
 static ucg_builtin_ctx_t *ucg_builtin_get_ctx(ucg_worker_h worker)
 {
     ucg_builtin_ctx_t **ctx = UCG_WORKER_TO_COMPONENT_CTX(ucg_builtin_component, worker);
+    
     if (*ctx == NULL) {
         ucs_status_t status = ucg_builtin_init_ctx(ctx);
         if (status != UCS_OK) {
             return NULL;
         }
     }
+
     return (*ctx);
 }
 
@@ -202,9 +248,11 @@ static ucg_builtin_comp_slot_t *ucg_builtin_get_slot(ucg_worker_h worker, unsign
     if (ctx == NULL) {
         return NULL;
     }
+
     if (ctx->slots_total <= group_id) {
         return NULL;
     }
+
     return ctx->slots[group_id];
 }
 
@@ -214,6 +262,7 @@ static ucg_builtin_comp_slot_t *ucg_builtin_set_slot(ucg_worker_h worker, unsign
     if (ctx == NULL) {
         return NULL;
     }
+
     if (ctx->slots_total <= group_id) {
         ucs_status_t status = ucg_builtin_extend_slots(ctx, group_id + 1);
         if (status != UCS_OK) {
@@ -225,10 +274,11 @@ static ucg_builtin_comp_slot_t *ucg_builtin_set_slot(ucg_worker_h worker, unsign
     for (i = 0; i < UCG_BUILTIN_MAX_CONCURRENT_OPS; i++) {
         ucg_builtin_comp_slot_t *slot = &ctx->slots[group_id][i];
         slot->mp = group_am_mp;
-
     }
+
     return ctx->slots[group_id];
 }
+
 /*
  * fix white-box review
  */
@@ -281,7 +331,7 @@ enum ucg_builtin_plan_topology_type ucg_builtin_choose_type(enum ucg_collective_
     }
 
     if (flags & ucg_predefined_modifiers[UCG_PRIMITIVE_ALLTOALLV]) {
-        return ucg_algo.plummer ? UCG_PLAN_ALLTOALLV_PLUMMER : UCG_PLAN_ALLTOALLV_LADD;
+        return (ucg_algo.plummer) ? UCG_PLAN_ALLTOALLV_PLUMMER : UCG_PLAN_ALLTOALLV_LADD;
     }
 
     if (flags & UCG_GROUP_COLLECTIVE_MODIFIER_ALLGATHER) {
@@ -406,6 +456,7 @@ UCS_PROFILE_FUNC(ucs_status_t, ucg_builtin_am_handler,
             ucs_fatal("Message abandoned, collection operation cannot be performed.");
         }
     }
+
     return ucg_builtin_am_process(&slot[header->coll_id % UCG_BUILTIN_MAX_CONCURRENT_OPS], data, length, am_flags);
 }
 
@@ -436,10 +487,10 @@ static ucs_status_t ucg_builtin_init_plan_config(ucg_plan_component_t *plan_comp
         config->bmtree.degree_intra_fanin  = DEFAULT_INTRA_KVALUE;
     }
 
-    ucs_info("plan %s bcast %u allreduce %u barrier %u alltoallv %u"
+    ucs_info("plan %s bcast %u allreduce %u alltoallv %u barrier %u"
              " inter_fanout %u inter_fanin %u intra_fanout %u intra_fanin %u",
              plan_component->name, (unsigned)config->bcast_algorithm, (unsigned)config->allreduce_algorithm,
-             (unsigned)config->barrier_algorithm, (unsigned)config->alltoallv_algorithm, config->bmtree.degree_inter_fanout,
+             (unsigned)config->alltoallv_algorithm, (unsigned)config->barrier_algorithm, config->bmtree.degree_inter_fanout,
              config->bmtree.degree_inter_fanin, config->bmtree.degree_intra_fanout, config->bmtree.degree_intra_fanin);
 
     return UCS_OK;
@@ -534,7 +585,9 @@ static void ucg_builtin_destroy(ucg_group_h group)
 {
     ucg_builtin_group_ctx_t *gctx = UCG_GROUP_TO_COMPONENT_CTX(ucg_builtin_component, group);
     unsigned i;
+
     ucg_builtin_pcache_destroy(group);
+
     for (i = 0; i < UCG_BUILTIN_MAX_CONCURRENT_OPS; i++) {
         if (gctx->slots[i].cb != NULL) {
             ucs_debug("Collective operation #%u has been left incomplete (Group #%u)",
@@ -833,6 +886,7 @@ ucs_status_t ucg_builtin_check_continuous_number(const ucg_group_params_t *group
     } else {
         *discont_flag = group_params->topo_args.nrank_uncontinue;
     }
+
     return UCS_OK;
 }
 
@@ -859,7 +913,9 @@ int ucg_builtin_op_can_reuse(const ucg_plan_t *plan, const ucg_op_t *op,
     ucp_datatype_t send_dtype = UCP_DATATYPE_CONTIG;
     ucg_builtin_plan_t *builtin_plan = (ucg_builtin_plan_t *)plan;
     ucg_builtin_op_t *builtin_op = (ucg_builtin_op_t *)op;
+    ucg_group_h group = plan->group;
 
+    /* If datatype is not contiguous, we do not consider op reuse. */
     if (builtin_op->send_dt != NULL) {
         return 0;
     }
@@ -868,6 +924,13 @@ int ucg_builtin_op_can_reuse(const ucg_plan_t *plan, const ucg_op_t *op,
     if (params->type.modifiers == ucg_predefined_modifiers[UCG_PRIMITIVE_ALLTOALLV])  {
         return 0;
     }
+
+    /* If datatype is not predefined, we do not consider op reuse. */
+    if (params->type.modifiers != ucg_predefined_modifiers[UCG_PRIMITIVE_BARRIER] &&
+        !group->params.mpi_dt_is_predefine(params->send.dt_ext)) {
+            return 0;
+    }
+
     if (params->send.count > 0) {
         builtin_plan->convert_f(params->send.dt_ext, &send_dtype);
         if (!UCG_DT_IS_CONTIG(params, send_dtype)) {
@@ -876,6 +939,44 @@ int ucg_builtin_op_can_reuse(const ucg_plan_t *plan, const ucg_op_t *op,
     }
 
     return 1;
+}
+
+static ucs_status_t ucg_builtin_step_md_mem_rereg(ucg_builtin_op_step_t *step)
+{
+    ucs_status_t ret = UCS_OK;
+
+    if ((step->uct_md != NULL) && (step->zcopy.memh != NULL)) {
+        ret = uct_md_mem_dereg(step->uct_md, step->zcopy.memh);
+        if (ret != UCS_OK) {
+            return ret;
+        }
+
+        ret = uct_md_mem_reg(step->uct_md, step->send_buffer, step->buffer_length, UCT_MD_MEM_ACCESS_ALL,
+            &step->zcopy.memh);
+        if (ret != UCS_OK) {
+            return ret;
+        }
+    }
+
+    return ret;
+}
+
+ucs_status_t ucg_builtin_op_md_mem_rereg(ucg_op_t *op)
+{
+    ucs_status_t ret = UCS_OK;
+    ucg_builtin_op_t *builtin_op = (ucg_builtin_op_t *)op;
+
+    if (builtin_op->steps != NULL) {
+        ucg_builtin_op_step_t *step = &builtin_op->steps[0];
+        do {
+            ret = ucg_builtin_step_md_mem_rereg(step);
+            if (ret != UCS_OK) {
+                return ret;
+            }
+        } while (!((step++)->flags & UCG_BUILTIN_OP_STEP_FLAG_LAST_STEP));
+    }
+    
+    return ret;
 }
 
 void ucg_builtin_log_algo()
@@ -901,6 +1002,7 @@ static void ucg_builtin_plan_create(ucg_builtin_plan_t *plan,
 STATIC_GTEST void ucg_builtin_set_algo(coll_type_t ctype, int algo_id, ucg_builtin_algo_t *algo)
 {
     ucg_builtin_init_algo(algo);
+
     switch (ctype) {
         case COLL_TYPE_BARRIER:
             ucg_builtin_barrier_algo_switch(algo_id, algo);
@@ -933,52 +1035,20 @@ static ucs_status_t ucg_builtin_plan(ucg_group_h group, int algo_id,
     ucg_builtin_group_ctx_t *builtin_ctx = UCG_GROUP_TO_COMPONENT_CTX(ucg_builtin_component, group);
     ucg_plan_component_t *plan_component = &ucg_builtin_component;
     ucg_collective_type_t *coll_type = &coll_params->type;
+    ucg_builtin_coll_algo_h coll_algo = NULL;
     enum ucg_builtin_plan_topology_type plan_topo_type;
     ucg_builtin_plan_t *plan = NULL;
     ucs_status_t status;
-    ucg_builtin_set_algo(coll_params->coll_type, algo_id, &ucg_algo);
-    plan_topo_type = ucg_builtin_choose_type(coll_type->modifiers);
 
-    ucs_debug("plan topo type: %d", plan_topo_type);
-
-    /* Build the topology according to the requested */
-    switch (plan_topo_type) {
-        case UCG_PLAN_RECURSIVE:
-            status = ucg_builtin_recursive_create(builtin_ctx, plan_topo_type, plan_component->plan_config,
-                                                  builtin_ctx->group_params, coll_type, &plan);
-            break;
-
-        case UCG_PLAN_RING:
-            status = ucg_builtin_ring_create(builtin_ctx, plan_topo_type, plan_component->plan_config,
-                                             builtin_ctx->group_params, coll_type, &plan);
-            break;
-
-        case UCG_PLAN_BINARY_BLOCK:
-            status = ucg_builtin_binary_block_create(builtin_ctx, plan_topo_type, plan_component->plan_config,
-                                             builtin_ctx->group_params, coll_type, &plan);
-            break;
-#if ENABLE_UCG_HICOLL
-        case UCG_PLAN_NAP:
-            status = ucg_builtin_NAP_create(builtin_ctx, plan_topo_type, plan_component->plan_config,
-                                             builtin_ctx->group_params, coll_type, &plan);
-            break;
-
-        case UCG_PLAN_ALLTOALLV_LADD:
-            status = ucg_builtin_throttled_scatter_create(builtin_ctx, plan_topo_type, plan_component->plan_config,
-                                             builtin_ctx->group_params, coll_params, &plan);
-            break;
-
-        case UCG_PLAN_ALLTOALLV_PLUMMER:
-            status = ucg_builtin_Plummer_create(builtin_ctx, plan_topo_type, plan_component->plan_config,
-                                             builtin_ctx->group_params, coll_type, coll_params, &plan);
-            break;
-#endif
-        default:
-            status = ucg_builtin_binomial_tree_create(builtin_ctx, plan_topo_type, plan_component->plan_config,
-                                                      builtin_ctx->group_params, coll_type, &plan);
-            break;
+    status = ucg_builtin_algo_find(coll_params->coll_type, algo_id, &coll_algo);
+    if (status != UCS_OK) {
+        return status;
     }
 
+    ucg_builtin_set_algo(coll_params->coll_type, algo_id, &ucg_algo);
+    plan_topo_type = ucg_builtin_choose_type(coll_type->modifiers);
+    status = coll_algo->create(builtin_ctx, plan_topo_type, plan_component->plan_config,
+                                builtin_ctx->group_params, coll_params, &plan);
     if (status != UCS_OK) {
         ucg_builtin_free((void **)&plan);
         return status;
@@ -1014,11 +1084,11 @@ STATIC_GTEST void ucg_builtin_print(ucg_plan_t *plan, const ucg_collective_param
 STATIC_GTEST void  ucg_builtin_set_phase_thresh_max_short(ucg_builtin_group_ctx_t *ctx,
                                              ucg_builtin_plan_phase_t *phase)
 {
-
     phase->send_thresh.max_short_one = (phase->ep_attr->cap.am.max_short < sizeof(ucg_builtin_header_t)) ?
         0 : (phase->ep_attr->cap.am.max_short - sizeof(ucg_builtin_header_t));
 
-    phase->send_thresh.max_short_max = (phase->send_thresh.max_short_one == 0) ? 0 : ctx->config->short_max_tx;
+    phase->send_thresh.max_short_max = (phase->send_thresh.max_short_one == 0) ?
+        0 : ctx->config->short_max_tx;
 
     if (phase->send_thresh.max_short_one > phase->send_thresh.max_short_max) {
         phase->send_thresh.max_short_one = phase->send_thresh.max_short_max;
@@ -1051,7 +1121,8 @@ void  ucg_builtin_set_phase_thresholds(ucg_builtin_group_ctx_t *ctx,
     ucg_builtin_set_phase_thresh_max_short(ctx, phase);
     ucg_builtin_set_phase_thresh_max_bcopy_zcopy(ctx, phase);
 
-    phase->send_thresh.md_attr_cap_max_reg = (phase->md_attr->cap.flags & UCT_MD_FLAG_NEED_MEMH) ? phase->md_attr->cap.max_reg : 0;
+    phase->send_thresh.md_attr_cap_max_reg = (phase->md_attr->cap.flags & UCT_MD_FLAG_NEED_MEMH) ? 
+                                            phase->md_attr->cap.max_reg : 0;
     phase->send_thresh.initialized = 1;
 
     if (!phase->recv_thresh.initialized) {
@@ -1062,8 +1133,10 @@ void  ucg_builtin_set_phase_thresholds(ucg_builtin_group_ctx_t *ctx,
 
 void ucg_builtin_log_phase_info(ucg_builtin_plan_phase_t *phase, ucg_group_member_index_t idx)
 {
-    ucs_info("phase create: %p, dest %" PRIu64 ", short_one %zu, short_max %zu, bcopy_one %zu, bcopy_max %zu, zcopy_one %zu, max_reg %zu",
-               phase, idx, phase->send_thresh.max_short_one, phase->send_thresh.max_short_max, phase->send_thresh.max_bcopy_one, phase->send_thresh.max_bcopy_max, phase->send_thresh.max_zcopy_one, phase->md_attr->cap.max_reg);
+    ucs_info("phase create: %p, dest %" PRIu64 ", short_one %zu, short_max %zu,"
+             "bcopy_one %zu, bcopy_max %zu, zcopy_one %zu, max_reg %zu", phase, idx, phase->send_thresh.max_short_one,
+              phase->send_thresh.max_short_max, phase->send_thresh.max_bcopy_one, phase->send_thresh.max_bcopy_max,
+              phase->send_thresh.max_zcopy_one, phase->md_attr->cap.max_reg);
 }
 
 ucs_status_t ucg_builtin_connect(ucg_builtin_group_ctx_t *ctx,
@@ -1073,6 +1146,7 @@ ucs_status_t ucg_builtin_connect(ucg_builtin_group_ctx_t *ctx,
     uct_ep_h ep;
     ucp_ep_h ucp_ep;
     unsigned alloc_cnt;
+    
     ucs_status_t status = ucg_plan_connect(ctx->group, idx, &ep,
                                            &phase->ep_attr, &phase->md, &phase->md_attr, &ucp_ep);
     if (ucs_unlikely(status != UCS_OK)) {
@@ -1087,8 +1161,7 @@ ucs_status_t ucg_builtin_connect(ucg_builtin_group_ctx_t *ctx,
     phase->ucp_eps[(phase_ep_index == UCG_BUILTIN_CONNECT_SINGLE_EP) ? 0 : phase_ep_index] = ucp_ep;
 
 #if ENABLE_DEBUG_DATA
-    phase->indexes[(phase_ep_index != UCG_BUILTIN_CONNECT_SINGLE_EP) ?
-            phase_ep_index : 0] = idx;
+    phase->indexes[(phase_ep_index != UCG_BUILTIN_CONNECT_SINGLE_EP) ? phase_ep_index : 0] = idx;
 #endif
     if (!ep) {
         phase->send_thresh.max_short_one = SIZE_MAX;

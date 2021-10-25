@@ -1,6 +1,8 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
- * See file LICENSE for terms.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2021.  All rights reserved.
+ * Description: UCG builtin plan cache mechanism
+ * Author: shizhibao
+ * Create: 2021-08-06
  */
 
 #ifndef UCG_BUILTIN_PLAN_CACHE_H
@@ -20,5 +22,7 @@ ucg_plan_t *ucg_builtin_pcache_find(const ucg_group_h group, int algo,
 
 void ucg_builtin_pcache_update(ucg_group_h group, ucg_plan_t *plan, int algo,
                                     const ucg_collective_params_t *coll_params);
+
 END_C_DECLS
-#endif
+
+#endif /* !UCG_BUILTIN_PLAN_CACHE_H */

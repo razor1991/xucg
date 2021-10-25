@@ -1,15 +1,16 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
- * Description: Algorithm decision for collective operation
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2021.  All rights reserved.
+ * Description: Algorithm check and fallback
+ * Author: shizhibao
+ * Create: 2021-07-16
  */
-
 
 #include <ucs/debug/log.h>
 #include <ucp/dt/dt_contig.h>
 
 #include "builtin_plan.h"
-#include "../../api/ucg.h"
 #include "builtin_algo_decision.h"
+#include "builtin_algo_mgr.h"
 
 typedef enum {
     CHECK_ALGO_NOT_EXIST,
@@ -28,7 +29,6 @@ typedef enum {
     CHECK_PHASE_SEGMENT,
     CHECK_INC_UNSUPPORT,
     CHECK_MPI_IN_PLACE,
-    CHECK_PLUMMER_UNSUPPORT,
     /* The new check item must be added above */
     CHECK_ITEM_NUMS
 } check_item_t;
@@ -50,35 +50,15 @@ static const char *check_item_str_array[CHECK_ITEM_NUMS] = {
     "phase_segment",
     "inc_unsupport",
     "mpi_in_place",
-    "plummer_unsupport",
 };
 
 static int ucg_builtin_check_algo_not_exist(const ucg_group_params_t *group_params,
                                             const ucg_collective_params_t *coll_params,
                                             const int algo)
 {
-    switch (coll_params->coll_type) {
-        case COLL_TYPE_BARRIER:
-            if (algo == UCG_ALGORITHM_BARRIER_NODE_AWARE_INC ||
-                algo == UCG_ALGORITHM_BARRIER_SOCKET_AWARE_INC ||
-                algo == UCG_ALGORITHM_BARRIER_NAP) {
-                return 1;
-            }
-            break;
-        case COLL_TYPE_BCAST:
-            if (algo == UCG_ALGORITHM_BCAST_NODE_AWARE_INC) {
-                return 1;
-            }
-            break;
-        case COLL_TYPE_ALLREDUCE:
-            if (algo == UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_INC ||
-                algo == UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_INC ||
-                algo == UCG_ALGORITHM_ALLREDUCE_NAP) {
-                return 1;
-            }
-            break;
-        default:
-            break;
+    ucg_builtin_coll_algo_h coll_algo = NULL;
+    if (ucg_builtin_algo_find(coll_params->coll_type, algo, &coll_algo) != UCS_OK) {
+        return 1;
     }
     return 0;
 }
@@ -88,11 +68,13 @@ static int ucg_builtin_check_non_contig_datatype(const ucg_group_params_t *group
                                                  const int algo)
 {
     ucp_datatype_t ucp_datatype;
+
     if (coll_params->send.count <= 0 || coll_params->send.dt_len <= 0) {
         return 0;
     }
 
     group_params->mpi_dt_convert(coll_params->send.dt_ext, &ucp_datatype);
+
     return !UCP_DT_IS_CONTIG(ucp_datatype);
 }
 
@@ -109,6 +91,7 @@ static int ucg_builtin_check_nap_unsupport(const ucg_group_params_t *group_param
 {
     unsigned node_nums;
     int ppn_local;
+
     ppn_local = group_params->topo_args.ppn_local;
     node_nums = group_params->member_count / group_params->topo_args.ppn_local;
     return (group_params->topo_args.ppn_unbalance || ppn_local <= 1 || (node_nums & (node_nums - 1)));
@@ -120,6 +103,7 @@ static int ucg_builtin_check_raben_unsupport(const ucg_group_params_t *group_par
 {
     /* Raben does not support odd number of processes */
     const int even_number = 2;
+
     return (group_params->member_count % even_number);
 }
 
@@ -185,6 +169,7 @@ static int ucg_builtin_check_large_datatype(const ucg_group_params_t *group_para
                                             const int algo)
 {
     const int large_datatype_threshold = 32;
+
     return (coll_params->send.dt_len > large_datatype_threshold);
 }
 
@@ -201,12 +186,14 @@ static int ucg_builtin_check_phase_segment(const ucg_group_params_t *group_param
     if (dt_len > UCT_MIN_BCOPY_ONE_LEN) {
         return 1;
     }
+
     if (dt_len > UCT_MIN_SHORT_ONE_LEN && (dt_len * count) <= UCG_SHORT_THRESHHOLD) {
         return 1;
     }
 #undef UCG_SHORT_THRESHHOLD
 #undef UCT_MIN_SHORT_ONE_LEN
 #undef UCT_MIN_BCOPY_ONE_LEN
+
     return 0;
 }
 
@@ -214,11 +201,7 @@ static int ucg_builtin_check_inc_unsupport(const ucg_group_params_t *group_param
                                            const ucg_collective_params_t *coll_params,
                                            const int algo)
 {
-    int enable_inc = 0;
-#if ENABLE_UCG_HICOLL
-    enable_inc = inc_used(group_params);
-#endif
-    return !enable_inc;
+    return !UCG_BUILTIN_INC_CHECK(inc_used, group_params);
 }
 
 static int ucg_builtin_check_mpi_in_place(const ucg_group_params_t *group_params,
@@ -226,28 +209,6 @@ static int ucg_builtin_check_mpi_in_place(const ucg_group_params_t *group_params
                                           const int algo)
 {
     return coll_params->send.buf == MPI_IN_PLACE;
-}
-
-STATIC_GTEST int ucg_builtin_check_plummer_unsupport(const ucg_group_params_t *group_params,
-                                                     const ucg_collective_params_t *coll_params,
-                                                     const int algo)
-{
-    ucg_group_member_index_t i;
-    for (i = 0; i < group_params->member_count; i++) {
-        if (coll_params->send.displs[i] < 0 || coll_params->recv.displs[i] < 0) {
-            return 1;
-        }
-    }
-    if (coll_params->send.displs[0] != 0 || coll_params->recv.displs[0] != 0) {
-        return 1;
-    }
-    for (i = 0; i < (group_params->member_count - 1); i++) {
-        if ((coll_params->send.displs[i + 1] != (coll_params->send.displs[i] + coll_params->send.counts[i])) ||
-            (coll_params->recv.displs[i + 1] != (coll_params->recv.displs[i] + coll_params->recv.counts[i]))) {
-            return 1;
-        }
-    }
-    return 0;
 }
 
 typedef int (*check_f)(const ucg_group_params_t *group_params, const ucg_collective_params_t *coll_params, const int algo);
@@ -269,7 +230,6 @@ static check_f check_fun_array[CHECK_ITEM_NUMS] = {
     ucg_builtin_check_phase_segment,
     ucg_builtin_check_inc_unsupport,
     ucg_builtin_check_mpi_in_place,
-    ucg_builtin_check_plummer_unsupport,
 };
 
 typedef struct {
@@ -502,54 +462,53 @@ static check_fallback_t chkfb_alltoallv_algo2[] = {
     {CHECK_PPN_UNBALANCE,  1},
     {CHECK_NRANK_UNCONTINUE,  1},
     {CHECK_MPI_IN_PLACE,  1},
-    {CHECK_PLUMMER_UNSUPPORT,  1},
 };
 
 chkfb_tbl_t chkfb_barrier[UCG_ALGORITHM_BARRIER_LAST] = {
-    {NULL, 0},
-    {NULL, 0},
-    {NULL, 0},
-    {CHKFB_BARRIER(3), CHKFB_SIZE_BARRIER(3)},
-    {CHKFB_BARRIER(4), CHKFB_SIZE_BARRIER(4)},
-    {CHKFB_BARRIER(5), CHKFB_SIZE_BARRIER(5)},
-    {CHKFB_BARRIER(6), CHKFB_SIZE_BARRIER(6)},
-    {CHKFB_BARRIER(7), CHKFB_SIZE_BARRIER(7)},
-    {CHKFB_BARRIER(8), CHKFB_SIZE_BARRIER(8)},
-    {CHKFB_BARRIER(9), CHKFB_SIZE_BARRIER(9)},
-    {CHKFB_BARRIER(10), CHKFB_SIZE_BARRIER(10)},
+    {NULL, 0}, /* algo 0 */
+    {NULL, 0}, /* algo 1 */
+    {NULL, 0}, /* algo 2 */
+    {CHKFB_BARRIER(3), CHKFB_SIZE_BARRIER(3)}, /* algo 3 */
+    {CHKFB_BARRIER(4), CHKFB_SIZE_BARRIER(4)}, /* algo 4 */
+    {CHKFB_BARRIER(5), CHKFB_SIZE_BARRIER(5)}, /* algo 5 */
+    {CHKFB_BARRIER(6), CHKFB_SIZE_BARRIER(6)}, /* algo 6 */
+    {CHKFB_BARRIER(7), CHKFB_SIZE_BARRIER(7)}, /* algo 7 */
+    {CHKFB_BARRIER(8), CHKFB_SIZE_BARRIER(8)}, /* algo 8 */
+    {CHKFB_BARRIER(9), CHKFB_SIZE_BARRIER(9)}, /* algo 9 */
+    {CHKFB_BARRIER(10), CHKFB_SIZE_BARRIER(10)}, /* algo 10 */
 };
 
 chkfb_tbl_t chkfb_bcast[UCG_ALGORITHM_BCAST_LAST] = {
-    {NULL, 0},
-    {NULL, 0},
-    {NULL, 0},
-    {CHKFB_BCAST(3), CHKFB_SIZE_BCAST(3)},
-    {CHKFB_BCAST(4), CHKFB_SIZE_BCAST(4)},
-    {CHKFB_BCAST(5), CHKFB_SIZE_BCAST(5)},
+    {NULL, 0}, /* algo 0 */
+    {NULL, 0}, /* algo 1 */
+    {NULL, 0}, /* algo 2 */
+    {CHKFB_BCAST(3), CHKFB_SIZE_BCAST(3)}, /* algo 3 */
+    {CHKFB_BCAST(4), CHKFB_SIZE_BCAST(4)}, /* algo 4 */
+    {CHKFB_BCAST(5), CHKFB_SIZE_BCAST(5)}, /* algo 5 */
 };
 
 chkfb_tbl_t chkfb_alltoallv[UCG_ALGORITHM_ALLTOALLV_LAST] = {
-    {NULL, 0},
-    {NULL, 0},
-    {CHKFB_ALLTOALLV(2), CHKFB_SIZE_ALLTOALLV(2)},
+    {NULL, 0}, /* algo 0 */
+    {NULL, 0}, /* algo 1 */
+    {CHKFB_ALLTOALLV(2), CHKFB_SIZE_ALLTOALLV(2)}, /* algo 2 */
 };
 
 chkfb_tbl_t chkfb_allreduce[UCG_ALGORITHM_ALLREDUCE_LAST] = {
-    {NULL, 0},
-    {NULL, 0},
-    {CHKFB_ALLREDUCE(2), CHKFB_SIZE_ALLREDUCE(2)},
-    {CHKFB_ALLREDUCE(3), CHKFB_SIZE_ALLREDUCE(3)},
-    {CHKFB_ALLREDUCE(4), CHKFB_SIZE_ALLREDUCE(4)},
-    {CHKFB_ALLREDUCE(5), CHKFB_SIZE_ALLREDUCE(5)},
-    {CHKFB_ALLREDUCE(6), CHKFB_SIZE_ALLREDUCE(6)},
-    {CHKFB_ALLREDUCE(7), CHKFB_SIZE_ALLREDUCE(7)},
-    {CHKFB_ALLREDUCE(8), CHKFB_SIZE_ALLREDUCE(8)},
-    {CHKFB_ALLREDUCE(9), CHKFB_SIZE_ALLREDUCE(9)},
-    {CHKFB_ALLREDUCE(10), CHKFB_SIZE_ALLREDUCE(10)},
-    {CHKFB_ALLREDUCE(11), CHKFB_SIZE_ALLREDUCE(11)},
-    {CHKFB_ALLREDUCE(12), CHKFB_SIZE_ALLREDUCE(12)},
-    {CHKFB_ALLREDUCE(13), CHKFB_SIZE_ALLREDUCE(13)},
-    {CHKFB_ALLREDUCE(14), CHKFB_SIZE_ALLREDUCE(14)},
+    {NULL, 0}, /* algo 0 */
+    {NULL, 0}, /* algo 1 */
+    {CHKFB_ALLREDUCE(2), CHKFB_SIZE_ALLREDUCE(2)}, /* algo 2 */
+    {CHKFB_ALLREDUCE(3), CHKFB_SIZE_ALLREDUCE(3)}, /* algo 3 */
+    {CHKFB_ALLREDUCE(4), CHKFB_SIZE_ALLREDUCE(4)}, /* algo 4 */
+    {CHKFB_ALLREDUCE(5), CHKFB_SIZE_ALLREDUCE(5)}, /* algo 5 */
+    {CHKFB_ALLREDUCE(6), CHKFB_SIZE_ALLREDUCE(6)}, /* algo 6 */
+    {CHKFB_ALLREDUCE(7), CHKFB_SIZE_ALLREDUCE(7)}, /* algo 7 */
+    {CHKFB_ALLREDUCE(8), CHKFB_SIZE_ALLREDUCE(8)}, /* algo 8 */
+    {CHKFB_ALLREDUCE(9), CHKFB_SIZE_ALLREDUCE(9)}, /* algo 9 */
+    {CHKFB_ALLREDUCE(10), CHKFB_SIZE_ALLREDUCE(10)}, /* algo 10 */
+    {CHKFB_ALLREDUCE(11), CHKFB_SIZE_ALLREDUCE(11)}, /* algo 11 */
+    {CHKFB_ALLREDUCE(12), CHKFB_SIZE_ALLREDUCE(12)}, /* algo 12 */
+    {CHKFB_ALLREDUCE(13), CHKFB_SIZE_ALLREDUCE(13)}, /* algo 13 */
+    {CHKFB_ALLREDUCE(14), CHKFB_SIZE_ALLREDUCE(14)}, /* algo 14 */
 };
 
 #undef CHKFB_BARRIER
@@ -591,10 +550,10 @@ static inline check_fallback_t *ucg_builtin_alltoallv_check_fallback_array(int a
 typedef check_fallback_t *(*chk_fb_arr_f)(int algo, int *arr_size);
 
 static chk_fb_arr_f check_fallback[COLL_TYPE_NUMS] = {
-    ucg_builtin_barrier_check_fallback_array,
-    ucg_builtin_bcast_check_fallback_array,
-    ucg_builtin_allreduce_check_fallback_array,
-    ucg_builtin_alltoallv_check_fallback_array,
+    ucg_builtin_barrier_check_fallback_array,   /* COLL_TYPE_BARRIER */
+    ucg_builtin_bcast_check_fallback_array,     /* COLL_TYPE_BCAST */
+    ucg_builtin_allreduce_check_fallback_array, /* COLL_TYPE_ALLREDUCE */
+    ucg_builtin_alltoallv_check_fallback_array, /* COLL_TYPE_ALLTOALLV */
 };
 
 static check_fallback_t *ucg_builtin_get_check_fallback_array(coll_type_t coll_type, int algo, int *arr_size)
@@ -610,6 +569,7 @@ int ucg_builtin_algo_check_fallback(const ucg_group_params_t *group_params,
     check_item_t chk_item;
     check_f chk_fun;
     int i, size, algo_fb;
+
     algo_fb = algo;
     algo = 0;
     while (algo != algo_fb) {
@@ -627,5 +587,6 @@ int ucg_builtin_algo_check_fallback(const ucg_group_params_t *group_params,
             }
         }
     }
+
     return algo_fb;
 }

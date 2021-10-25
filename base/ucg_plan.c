@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2020. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021. All rights reserved.
  * Description: UCG plan
  */
 
@@ -14,6 +14,7 @@
 #include <ucs/arch/cpu.h>
 
 #include "ucg_plan.h"
+
 UCS_LIST_HEAD(ucg_plan_components_list);
 
 /*
@@ -92,15 +93,12 @@ static ucs_status_t ucg_plan_read_config(ucg_plan_component_t *planc)
 
 ucs_status_t ucg_plan_query(ucg_plan_desc_t **resources_p, unsigned *nums_p)
 {
-    UCS_MODULE_FRAMEWORK_DECLARE(ucg);
     ucg_plan_desc_t *resources = NULL;
     ucg_plan_desc_t *planners = NULL;
     ucg_plan_desc_t *tmp = NULL;
     unsigned nums, num_plans;
     ucg_plan_component_t *planc = NULL;
     ucs_status_t status;
-
-    UCS_MODULE_FRAMEWORK_LOAD(ucg, 0);
 
     nums = 0;
 
@@ -127,7 +125,6 @@ ucs_status_t ucg_plan_query(ucg_plan_desc_t **resources_p, unsigned *nums_p)
 
         resources = tmp;
         memcpy(resources + nums, planners, sizeof(*planners) * num_plans);
-
         nums += num_plans;
         ucg_plan_free((void **)&planners);
     }

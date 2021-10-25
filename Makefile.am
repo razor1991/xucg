@@ -5,7 +5,7 @@
 
 if HAVE_UCG
 
-SUBDIRS = base builtin hicoll
+SUBDIRS = base builtin
 
 UCG_VERSION=2:0:1
 
