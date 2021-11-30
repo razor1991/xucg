@@ -1,6 +1,6 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
- * See file LICENSE for terms.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020-2021.  All rights reserved.
+ * Description: Tree algorithm
  */
 
 #include <ucs/debug/log.h>
@@ -9,6 +9,7 @@
 #include <uct/api/uct_def.h>
 
 #include "builtin_plan.h"
+
 #define MAX_PEERS (100)
 #define MAX_PHASES (16)
 
@@ -30,8 +31,10 @@ ucs_config_field_t ucg_builtin_trees_config_table[] = {
 
     {"INTRA_DEGREE_FANIN", "2", "k-nomial tree degree for intra node with fanin process.\n",
      ucs_offsetof(ucg_builtin_trees_config_t, intra_degree_fanin), UCS_CONFIG_TYPE_UINT},
+    
     {NULL}
 };
+
 static inline void ucg_builtin_phase_init(ucg_builtin_plan_phase_t *phase,
                                            ucg_step_idx_t step_index,
                                            unsigned peer_cnt,
@@ -85,6 +88,7 @@ ucs_status_t ucg_builtin_treenode_connect(ucg_builtin_plan_t *tree,
                                           enum ucg_builtin_plan_topology_type tree_topo)
 {
     ucs_status_t status = UCS_OK;
+
     ucg_builtin_plan_phase_t *phase = &tree->phss[tree->phs_cnt];
 
     /* find phase method */
@@ -93,8 +97,10 @@ ucs_status_t ucg_builtin_treenode_connect(ucg_builtin_plan_t *tree,
         case UCG_PLAN_TREE_FANIN:
             if (down_cnt) {
                 method = ((unsigned)mod & UCG_GROUP_COLLECTIVE_MODIFIER_AGGREGATE) ?
-                    (up_cnt ? UCG_PLAN_METHOD_REDUCE_WAYPOINT : UCG_PLAN_METHOD_REDUCE_TERMINAL):
-                    (up_cnt ? UCG_PLAN_METHOD_GATHER_WAYPOINT : UCG_PLAN_METHOD_RECV_TERMINAL);
+                    (up_cnt ? UCG_PLAN_METHOD_REDUCE_WAYPOINT :
+                     UCG_PLAN_METHOD_REDUCE_TERMINAL):
+                    (up_cnt ? UCG_PLAN_METHOD_GATHER_WAYPOINT :
+                     UCG_PLAN_METHOD_RECV_TERMINAL);
             } else {
                 method = UCG_PLAN_METHOD_SEND_TERMINAL;
             }
@@ -102,8 +108,10 @@ ucs_status_t ucg_builtin_treenode_connect(ucg_builtin_plan_t *tree,
         case UCG_PLAN_TREE_FANOUT:
             if (down_cnt) {
                 method = ((unsigned)mod & UCG_GROUP_COLLECTIVE_MODIFIER_BROADCAST) ?
-                    (up_cnt ? UCG_PLAN_METHOD_BCAST_WAYPOINT : UCG_PLAN_METHOD_SEND_TERMINAL) :
-                    (up_cnt ? UCG_PLAN_METHOD_SCATTER_WAYPOINT : UCG_PLAN_METHOD_SCATTER_TERMINAL);
+                    (up_cnt ? UCG_PLAN_METHOD_BCAST_WAYPOINT :
+                     UCG_PLAN_METHOD_SEND_TERMINAL) :
+                    (up_cnt ? UCG_PLAN_METHOD_SCATTER_WAYPOINT :
+                     UCG_PLAN_METHOD_SCATTER_TERMINAL);
             } else {
                 method = UCG_PLAN_METHOD_RECV_TERMINAL;
             }
@@ -120,12 +128,14 @@ ucs_status_t ucg_builtin_treenode_connect(ucg_builtin_plan_t *tree,
         status = ucg_builtin_treenode_connect_to_phase(phase, ctx, tree->step_cnt,
                                                     &next_ep, up, up_cnt, method);
     }
-    /* root */
+
+    /* Root */
     if (up_cnt == 0 && down_cnt > 0) {
         /* Connect this phase to its peers */
         status = ucg_builtin_treenode_connect_to_phase(phase, ctx, tree->step_cnt,
                                                     &next_ep, down, down_cnt, method);
     }
+
     /* Waypoint */
     /**
      * layout of peers which need to be connected:
@@ -142,13 +152,14 @@ ucs_status_t ucg_builtin_treenode_connect(ucg_builtin_plan_t *tree,
             status = ucg_builtin_treenode_connect_to_phase(phase, ctx, tree->step_cnt,
                                                     &next_ep, down, down_cnt + up_cnt, method);
         } else if (tree_topo == UCG_PLAN_TREE_FANOUT) {
-            for (member_idx = up_cnt; member_idx < down_cnt + up_cnt; member_idx++) {
+            for (member_idx = up_cnt; member_idx < up_cnt + down_cnt; member_idx++) {
                 up[member_idx] = down[member_idx - up_cnt];
             }
             status = ucg_builtin_treenode_connect_to_phase(phase, ctx, tree->step_cnt,
                                                         &next_ep, up, up_cnt + down_cnt, method);
         }
     }
+    
     return status;
 }
 
@@ -173,15 +184,20 @@ static ucs_status_t ucg_builtin_get_tree_topo(enum ucg_builtin_plan_connect_patt
         case UCG_PLAN_PATTERN_MANY_TO_ONE:
             *tree_topo = UCG_PLAN_TREE_FANIN;
             break;
+
         case UCG_PLAN_PATTERN_ONE_TO_MANY:
             *tree_topo = UCG_PLAN_TREE_FANOUT;
             break;
+
         default:
             ucs_error("For tree, do not support many-to-many pattern!!!");
             return UCS_ERR_INVALID_PARAM;
     }
+
     return UCS_OK;
 }
+
+/* binomial tree */
 ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
                                       ucg_builtin_base_params_t *params,
                                       const ucg_builtin_config_t *config,
@@ -202,6 +218,7 @@ ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
     if (status) {
         return status;
     }
+
     ucg_group_member_index_t member_idx, rank_shift, peer, value;
     /* my_index is always "local" */
     ucg_group_member_index_t my_index = 0;
@@ -217,14 +234,15 @@ ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
         my_index = bmtree->super.my_index;
         root = member_root;
     } else if (build_type == UCG_PLAN_BUILD_PARTIAL) {
-        /* Find the local my own index */
+        /* find the local my own index */
         for (member_idx = 0; member_idx < member_cnt; member_idx++) {
             if (member_list[member_idx] == bmtree->super.my_index) {
                 my_index = member_idx;
                 break;
             }
         }
-
+        
+        /* do nothing for one that is not in member_list */
         if (member_idx == member_cnt) {
             /* step_cnt is updated by one for trees while phs_cnt is not*/
             ucg_builtin_tree_step_cnt(bmtree);
@@ -237,23 +255,26 @@ ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
                 break;
             }
         }
-        /* for trees, the root should be in member list */
+
+        /* for tree, the root should be in member list */
         if (member_idx == member_cnt) {
             ucs_error("The root is not in the member list for binomial tree build!!!");
             return UCS_ERR_INVALID_PARAM;
         }
     }
 
-/*
-    left-most tree for FANOUT
-    right-most tree for FANIN
-*/
+    /*
+     * FANIN  phase: right-most tree 
+     * FANOUT phase: left-most  tree
+     */
     if (tree_topo == UCG_PLAN_TREE_FANIN) {
     /* right-most tree */
         rank_shift = (my_index - root + member_cnt) % member_cnt;
+
         if (root == my_index) {
             up_cnt = 0;
         }
+
         while (tree_mask < member_cnt) {
             peer = rank_shift ^ tree_mask;
             if (peer < rank_shift) {
@@ -266,6 +287,7 @@ ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
             }
             tree_mask <<= 1;
         }
+
         down_cnt = num_child;
     } else if (tree_topo == UCG_PLAN_TREE_FANOUT) {
     /* left-most tree */
@@ -273,6 +295,8 @@ ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
         value = rank_shift;
         for (tree_mask = 1; value > 0; value >>= 1, tree_mask <<= 1) {
         }
+
+        /* find parent */
         if (root == my_index) {
             up_cnt = 0;
         } else {
@@ -280,6 +304,7 @@ ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
             up[0] = (peer + root) % member_cnt;
             up_cnt = 1;
         }
+
         /* find children */
         while (tree_mask < member_cnt) {
             peer = rank_shift ^ tree_mask;
@@ -290,6 +315,7 @@ ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
             num_child++;
             tree_mask <<= 1;
         }
+
         down_cnt = num_child;
     } else {
         ucs_error("Tree should be either FANIN or FANOUT!");
@@ -297,15 +323,15 @@ ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
     }
 
     if (build_type == UCG_PLAN_BUILD_PARTIAL) {
-        /* convert index to real rank */
+        /* covert from local rank to its real rank */
         for (member_idx = 0; member_idx < up_cnt; member_idx++) {
             up[member_idx] = member_list[up[member_idx]];
         }
-
         for (member_idx = 0; member_idx < down_cnt; member_idx++) {
             down[member_idx] = member_list[down[member_idx]];
         }
 
+        /* calculate my position in father's reduce data buffer */
         if (ucg_builtin_need_calate_position(params->coll_type, up_cnt, params->ctx, tree_topo)) {
             bmtree->super.up_offset = ucg_get_tree_buffer_pos(bmtree->super.my_index, up[0], root, member_cnt,
                                                                 config->bmtree.degree_intra_fanin, member_list);
@@ -314,12 +340,17 @@ ucs_status_t ucg_builtin_bmtree_build(ucg_builtin_plan_t *bmtree,
                     bmtree->super.my_index, root, member_cnt);
         }
     }
+
     status = ucg_builtin_treenode_connect(bmtree, ctx, config, mod, next_ep,
                                          up, up_cnt, down, down_cnt, tree_topo);
+    
+    /* update phs_cnt, step_cnt, and ep_cnt for tree */  
     ucg_builtin_tree_updata(bmtree, up_cnt, down_cnt);
+
     return status;
 }
 
+/* k-nomial tree */
 ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
                                       ucg_builtin_base_params_t *params,
                                       const ucg_builtin_config_t *config,
@@ -344,6 +375,7 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
     if (status) {
         return status;
     }
+
     ucg_group_member_index_t member_idx, rank_shift, orig_mask, peer;
     /* my_index is always "local" */
     ucg_group_member_index_t my_index = 0;
@@ -360,7 +392,7 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
         my_index = kmtree->super.my_index;
         root = member_root;
     } else if (build_type == UCG_PLAN_BUILD_PARTIAL) {
-        /* Find the local my own index */
+        /* find the local my own index */
         for (member_idx = 0; member_idx < member_cnt; member_idx++) {
             if (member_list[member_idx] == kmtree->super.my_index) {
                 my_index = member_idx;
@@ -368,6 +400,7 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
             }
         }
 
+        /* do nothing for one that is not in member_list */
         if (member_idx == member_cnt) {
             /* step_cnt is updated by one for trees while phs_cnt is not*/
             ucg_builtin_tree_step_cnt(kmtree);
@@ -380,20 +413,24 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
                 break;
             }
         }
-        /* for trees, the root should be in member list */
+
+        /* for tree, the root should be in member list */
         if (member_idx == member_cnt) {
             ucs_error("The root is not in the member list for binomial tree build!!!");
             return UCS_ERR_INVALID_PARAM;
         }
     }
 
-/*
-    left-most tree for FANOUT
-    right-most tree for FANIN
-*/
+    /**
+     * FANIN  phase: right-most tree 
+     * FANOUT phase: left-most  tree
+     * degree: "k" for k-nomial tree
+     */
     if (tree_topo == UCG_PLAN_TREE_FANIN) {
-    /* right-most tree */
+        /* right-most tree */
         rank_shift = (my_index - root + member_cnt) % member_cnt;
+
+        /* find parent */
         while (tree_mask < member_cnt) {
             if (rank_shift % (degree * tree_mask)) {
                 peer = rank_shift / (degree * tree_mask) * (degree * tree_mask);
@@ -402,10 +439,13 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
                 break;
             }
             tree_mask *= degree;
-
         }
+
+        /* find children */
         tree_mask /= degree;
+
         orig_mask = tree_mask;
+
         while (tree_mask > 0) {
             for (k = 1; k < degree; k++) {
                 peer = rank_shift + tree_mask * k;
@@ -415,8 +455,11 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
             }
             tree_mask /= degree;
         }
+
         down_cnt = num_child;
+
         tree_mask = orig_mask;
+
         while (tree_mask > 0) {
             for (k = 1; k < degree; k++) {
                 peer = rank_shift + tree_mask * k;
@@ -430,6 +473,8 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
     } else if (tree_topo == UCG_PLAN_TREE_FANOUT) {
     /* left-most tree */
         rank_shift = (my_index - root + member_cnt) % member_cnt;
+
+        /* find parent */
         while (tree_mask < member_cnt) {
             if (rank_shift % (degree * tree_mask)) {
                 peer = rank_shift / (degree * tree_mask) * (degree * tree_mask);
@@ -439,8 +484,10 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
             }
             tree_mask *= degree;
         }
+
         /* find children */
         tree_mask /= degree;
+
         while (tree_mask > 0) {
             for (k = 1; k < degree; k++) {
                 peer = rank_shift + tree_mask * k;
@@ -452,6 +499,7 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
             }
             tree_mask /= degree;
         }
+
         down_cnt = num_child;
     } else {
         ucs_error("Tree should be either FANIN or FANOUT!");
@@ -459,15 +507,15 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
     }
 
     if (build_type == UCG_PLAN_BUILD_PARTIAL) {
-        /* convert index to real rank */
+        /* covert from local rank to its real rank */
         for (member_idx = 0; member_idx < up_cnt; member_idx++) {
             up[member_idx] = member_list[up[member_idx]];
         }
-
         for (member_idx = 0; member_idx < down_cnt; member_idx++) {
             down[member_idx] = member_list[down[member_idx]];
         }
 
+        /* calculate my position in father's reduce data buffer */
         if (ucg_builtin_need_calate_position(params->coll_type, up_cnt, params->ctx, tree_topo)) {
             kmtree->super.up_offset = ucg_get_tree_buffer_pos(kmtree->super.my_index, up[0], root, member_cnt,
                                                                 config->bmtree.degree_intra_fanin, member_list);
@@ -476,9 +524,13 @@ ucs_status_t ucg_builtin_kmtree_build(ucg_builtin_plan_t *kmtree,
                     kmtree->super.my_index, root, member_cnt);
         }
     }
+
     status = ucg_builtin_treenode_connect(kmtree, ctx, config, mod, next_ep,
                                          up, up_cnt, down, down_cnt, tree_topo);
+
+    /* update phs_cnt, step_cnt, and ep_cnt for tree */                                    
     ucg_builtin_tree_updata(kmtree, up_cnt, down_cnt);
+    
     return status;
 }
 
@@ -492,6 +544,7 @@ int ucg_builtin_kmtree_get_child_ranks(unsigned rank,
     if (degree == 0 || size == 0) {
         return -1;
     }
+
     unsigned numChild = 0;
     unsigned mask = 1;
     unsigned localRank = (rank - root + size) % size;
@@ -519,6 +572,7 @@ int ucg_builtin_kmtree_get_child_ranks(unsigned rank,
         }
         i *= degree;
     }
+
     *pDownCnt = numChild;
     return 0;
 }
@@ -533,6 +587,7 @@ short ucg_get_tree_buffer_pos(ucg_group_member_index_t myrank,
     int downCnt;
     short ret = -1;
     int idx;
+
     if (ucg_builtin_kmtree_get_child_ranks(uprank, root, size, degree, down, &downCnt) == -1) {
         return -1;
     }
@@ -541,15 +596,17 @@ short ucg_get_tree_buffer_pos(ucg_group_member_index_t myrank,
     for (idx = 0; idx < downCnt; idx++) {
         down[idx] = member_list[down[idx]];
     }
+
     for (idx = 0; idx < downCnt; idx++) {
         if (down[idx] == myrank) {
             ret = idx;
             break;
         }
     }
-    ucs_debug("myrank:%lu, up:%lu, root:%lu, size:%u, down_cnt:%d, pos:%d",
-                   myrank, uprank, root, size, downCnt, ret);
-    return ((ret == -1) ? downCnt : ret );
+
+    ucs_debug("myrank:%lu up:%lu, root:%lu, size:%u, down_cnt:%d, pos:%d", myrank, uprank, root, size, downCnt, ret);
+    
+    return ((ret == -1) ? downCnt : ret ); /* if not found, maybe is socket-aware extra data, put it at tail */
 }
 
 int ucg_builtin_need_calate_position(const ucg_collective_type_t *coll,
@@ -563,5 +620,7 @@ int ucg_builtin_need_calate_position(const ucg_collective_type_t *coll,
          && (tree_topo == UCG_PLAN_TREE_FANIN)) {
              return 1;
     }
+
     return 0;
 }
+

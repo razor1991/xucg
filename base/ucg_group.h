@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2020.  All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021.  All rights reserved.
  * Description: UCG group
  */
 
@@ -25,6 +25,7 @@
 
 /* max number of collective type in the plan cache. */
 #define UCG_GROUP_MAX_COLL_TYPE_BUCKETS 16
+
 /* 1 for inc available ande 0 for unavailable */
 #define UCG_GROUP_INC_STATUS_NUM  2
 
@@ -45,6 +46,7 @@ __KHASH_TYPE(ucg_groups_ep, ucg_group_member_index_t, ucp_ep_h)
 __KHASH_IMPL(ucg_groups_ep, static UCS_F_MAYBE_UNUSED inline,
              ucg_group_member_index_t, ucp_ep_h, 1, kh_int64_hash_func,
              kh_int64_hash_equal);
+
 /*
  * To enable the "Groups" feature in UCX - it's registered as part of the UCX
  * context - and allocated a context slot in each UCP Worker at a certain offset.
@@ -90,5 +92,6 @@ struct ucg_group {
 int ucg_builtin_op_can_reuse(const ucg_plan_t *plan, const ucg_op_t *op,
                              const ucg_collective_params_t *params);
 
+ucs_status_t ucg_builtin_op_md_mem_rereg(ucg_op_t *op);
 
 #endif /* UCG_GROUP_H_ */

@@ -1,9 +1,10 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019.  ALL RIGHTS RESERVED.
- * See file LICENSE for terms.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021. All rights reserved.
+ * Description: Recursive doubling/halving algorithm
  */
 
 #include "builtin_plan.h"
+#include "builtin_algo_mgr.h"
 #include <string.h>
 #include <ucs/debug/log.h>
 #include <ucs/debug/memtrack.h>
@@ -52,6 +53,7 @@ static ucs_status_t ucg_builtin_recursive_build_power_factor(ucg_builtin_plan_t 
                                                               unsigned extra_indexs)
 {
     ucs_status_t status = UCS_OK;
+
     ucg_step_idx_ext_t local_step_idx;
     unsigned step_size = 1;
     for (local_step_idx = 0; ((local_step_idx < step_cnt) && (status == UCS_OK));
@@ -76,7 +78,7 @@ static ucs_status_t ucg_builtin_recursive_build_power_factor(ucg_builtin_plan_t 
             switch (recursive_type) {
             case UCG_PLAN_RECURSIVE_TYPE_ALLREDUCE: {
                 (*phase)->method = UCG_PLAN_METHOD_REDUCE_RECURSIVE;
-                /* To support non-commutative operation */
+                /* TO support non-commutative operation */
                 ucg_builtin_check_swap(factor, local_step_idx, my_index, (*phase));
                 break;
             }
@@ -108,6 +110,7 @@ static ucs_status_t ucg_builtin_recursive_build_power_factor(ucg_builtin_plan_t 
         *step_idx += step_cnt;
     }
     recursive->phs_cnt += step_cnt;
+
     return status;
 }
 
@@ -124,6 +127,7 @@ static ucs_status_t ucg_builtin_recursive_build_non_power_factor_post(ucg_builti
 {
     ucs_status_t status;
     ucg_group_member_index_t peer_index;
+
     unsigned is_even_rank = (my_index % NUM_TWO == 0);
     switch (recursive_type) {
         case UCG_PLAN_RECURSIVE_TYPE_ALLREDUCE: {
@@ -136,6 +140,7 @@ static ucs_status_t ucg_builtin_recursive_build_non_power_factor_post(ucg_builti
             return UCS_ERR_INVALID_PARAM;
         }
     }
+
     phase->ep_cnt = factor - 1;
     phase->step_index = (*step_idx);
 #if ENABLE_DEBUG_DATA
@@ -165,6 +170,7 @@ static ucs_status_t ucg_builtin_recursive_build_non_power_factor_pre(ucg_builtin
 {
     ucs_status_t status;
     ucg_group_member_index_t peer_index;
+
     unsigned is_even_rank = (my_index % NUM_TWO == 0);
     switch (recursive_type) {
         case UCG_PLAN_RECURSIVE_TYPE_ALLREDUCE: {
@@ -177,6 +183,7 @@ static ucs_status_t ucg_builtin_recursive_build_non_power_factor_pre(ucg_builtin
             return UCS_ERR_INVALID_PARAM;
         }
     }
+
     phase->ep_cnt = factor - 1;
     phase->step_index = (*step_idx);
 #if ENABLE_DEBUG_DATA
@@ -191,7 +198,6 @@ static ucs_status_t ucg_builtin_recursive_build_non_power_factor_pre(ucg_builtin
     }
     status = ucg_builtin_connect(ctx, peer_index, phase, UCG_BUILTIN_CONNECT_SINGLE_EP);
     return status;
-
 }
 
 static ucs_status_t ucg_builtin_recursive_build_non_power_factor(ucg_builtin_plan_t *recursive,
@@ -210,6 +216,7 @@ static ucs_status_t ucg_builtin_recursive_build_non_power_factor(ucg_builtin_pla
                                                               unsigned extra_indexs)
 {
     ucs_status_t status = UCS_OK;
+
     ucg_group_member_index_t new_my_index;
     if (my_index < NUM_TWO * extra_indexs && my_index % NUM_TWO == 0) {
         new_my_index = (ucg_group_member_index_t)-1;
@@ -218,22 +225,24 @@ static ucs_status_t ucg_builtin_recursive_build_non_power_factor(ucg_builtin_pla
     } else {
         new_my_index = my_index - extra_indexs;
     }
-    /*
-       TO support non-commutative operation, like matrix multiplication, modified recursive doubling change a little
-       - Even ranks less than 2 * extra_indexs only has pre- and after- processing steps;
-       - Odd  ranks less than 2 * extra_indexs participate all processing steps;
-       - ranks more than 2 * extra_indexs only pure recursive doubling.
 
-       An example:    0    1    2    3    4    5
-       pre-           0 -> 1    2 -> 3    4    5
-       RD:                 1         3    4    5
+    /**
+     * TO support non-commutative operation, like matrix multiplication, modified recursive doubling change a little
+     * - Even ranks less than 2 * extra_indexs only has pre- and after- processing steps;
+     * - Odd  ranks less than 2 * extra_indexs participate all processing steps;
+     * - ranks more than 2 * extra_indexs only pure recursive doubling.
+     * 
+     *  An example:    0    1    2    3    4     5
+     *  pre-           0 -> 1    2 -> 3    4     5
+     *                      1         3    4     5
+     * 
+     *  recursive           1    <->  3    4 <-> 5
+     *                      1    <->  4    3 <-> 5
+     * 
+     *  post-          0 <- 1    2 <- 3    4     5   
+     */
 
-    recursive                1  <->  3    4  <->  5
-                         1  <->  4    3  <->  5
-
-       post-         0 <- 1    2 <- 3    4    5
-    */
-    /* 1st: pre - processing steps for non power for two processes case */
+     /* 1st: pre - processing steps for non power of two processes case */
     if (my_index < NUM_TWO * extra_indexs) {
         status = ucg_builtin_recursive_build_non_power_factor_pre(recursive, ctx, member_list, build_type,
                                                                    recursive_type, *next_ep, *phase,
@@ -245,7 +254,7 @@ static ucs_status_t ucg_builtin_recursive_build_non_power_factor(ucg_builtin_pla
     }
     (*step_idx)++;
 
-    /*2nd: Calculate the peers for each step*/
+    /*2nd: calculate the peers for each step*/
     if (new_my_index != ((ucg_group_member_index_t)-1)) {
         status = ucg_builtin_recursive_build_power_factor(recursive, ctx, config, member_list,
                                                                member_cnt, build_type, recursive_type,
@@ -254,17 +263,18 @@ static ucs_status_t ucg_builtin_recursive_build_non_power_factor(ucg_builtin_pla
     }
     (*step_idx) += step_cnt;
 
-    /*3rd: after - processing steps for non power for two processes case*/
+    /*3rd: after - processing steps for non power of two processes case*/
     if (my_index < NUM_TWO * extra_indexs) {
-        status = ucg_builtin_recursive_build_non_power_factor_post(recursive, ctx, member_list, build_type,
-                                                                   recursive_type, *next_ep, *phase,
-                                                                   step_idx, my_index, factor);
+        status = ucg_builtin_recursive_build_non_power_factor_post(recursive, ctx, member_list,
+                                                                   build_type, recursive_type, *next_ep,
+                                                                   *phase, step_idx, my_index, factor);
         (*phase)++;
         (*next_ep)++;
         recursive->phs_cnt++;
         recursive->ep_cnt++;
     }
     (*step_idx)++;
+
     return status;
 }
 
@@ -302,6 +312,7 @@ ucs_status_t ucg_builtin_recursive_binary_build(ucg_builtin_plan_t *recursive,
     ucs_status_t status;
     /* recursive factor should be less than the "member_cnt" */
     unsigned factor = (member_cnt < config->recursive.factor) ? member_cnt : config->recursive.factor;
+    
     if (recursive_type != UCG_PLAN_RECURSIVE_TYPE_ALLREDUCE) {
         factor = FACTOR;
     }
@@ -313,6 +324,7 @@ ucs_status_t ucg_builtin_recursive_binary_build(ucg_builtin_plan_t *recursive,
         step_cnt++;
     }
     unsigned extra_indexs = member_cnt - step_size;
+
     /* my_index is always "local" */
     ucg_group_member_index_t my_index = 0;
     ucg_group_member_index_t member_idx = 0;
@@ -324,6 +336,7 @@ ucs_status_t ucg_builtin_recursive_binary_build(ucg_builtin_plan_t *recursive,
         recursive->step_cnt += (extra_indexs == 0) ? step_cnt :(step_cnt + NUM_TWO);
         return UCS_OK;
     }
+
     /* first phase */
     ucg_builtin_plan_phase_t *phase = &recursive->phss[recursive->phs_cnt];
     /* next_ep shifts as ep_cnt grows */
@@ -344,6 +357,7 @@ ucs_status_t ucg_builtin_recursive_binary_build(ucg_builtin_plan_t *recursive,
                                                         &next_ep, &step_idx, my_index, step_cnt,
                                                         factor, extra_indexs);
     }
+
     recursive->step_cnt = step_idx;
     return status;
 }
@@ -357,6 +371,7 @@ ucs_status_t ucg_builtin_recursive_build(ucg_builtin_plan_t *recursive,
                                         enum ucg_builtin_plan_recursive_type recursive_type)
 {
     ucs_status_t status = UCS_OK;
+
      /* next_ep shifts as ep_cnt grows */
     uct_ep_h *next_ep = (uct_ep_h *)(&recursive->phss[MAX_PHASES]) + recursive->ep_cnt;
 
@@ -365,7 +380,7 @@ ucs_status_t ucg_builtin_recursive_build(ucg_builtin_plan_t *recursive,
     ucg_group_member_index_t member_idx;
 
     if (ucs_popcount(member_cnt) > 1) {
-        ucs_error("Do not support non-power-of-two number of processes currently!");
+        ucs_error("Do not support non-power-of-two number of processes currently!!");
         return UCS_ERR_INVALID_PARAM;
     }
 
@@ -410,21 +425,23 @@ ucs_status_t ucg_builtin_recursive_build(ucg_builtin_plan_t *recursive,
         for (step_peer_idx = 1; ((step_peer_idx < factor) && (status == UCS_OK)); step_peer_idx++) {
             ucg_group_member_index_t peer_index = step_base + ((my_index - step_base + step_size * step_peer_idx)
                                                   % (step_size * factor));
-            ucs_info("%lu's peer #%u/%u (step #%u/%u): %lu ", my_index, step_peer_idx,
-                      factor - 1, step_idx + 1, step_cnt, peer_index);
+            ucs_info("%lu's peer #%u/%u (step #%u/%u): %lu ", my_index, step_peer_idx, factor - 1, step_idx + 1,
+                     step_cnt, peer_index);
             phase->multi_eps = next_ep++;
             recursive->ep_cnt++;
 
-            /* the real rank number */
+            /* restore the its "real" rank */
             if (build_type == UCG_PLAN_BUILD_PARTIAL) {
                 peer_index = member_list[peer_index];
             }
-            status = ucg_builtin_connect(ctx, peer_index, phase, (factor != NUM_TWO) ?
-                                          (step_peer_idx - 1) : UCG_BUILTIN_CONNECT_SINGLE_EP);
+            status = ucg_builtin_connect(ctx, peer_index, phase, (factor != NUM_TWO) ? (step_peer_idx - 1) :
+                                         UCG_BUILTIN_CONNECT_SINGLE_EP);
         }
     }
+
     /* update the count of phase and step */
     recursive->phs_cnt += step_cnt;
+
     return status;
 }
 
@@ -798,13 +815,14 @@ void ucg_builtin_recursive_init_member_list(ucg_group_member_index_t member_cnt,
 
 ucs_status_t ucg_builtin_recursive_create(ucg_builtin_group_ctx_t *ctx,
     enum ucg_builtin_plan_topology_type plan_topo_type, const ucg_builtin_config_t *config,
-    const ucg_group_params_t *group_params, const ucg_collective_type_t *coll_type, ucg_builtin_plan_t **plan_p)
+    const ucg_group_params_t *group_params, const ucg_collective_params_t *coll_params, ucg_builtin_plan_t **plan_p)
 {
     /* Find my own index */
     ucg_group_member_index_t my_rank = group_params->member_index;
 
     ucg_group_member_index_t member_cnt = group_params->member_count;
-    ucg_group_member_index_t *member_list = UCS_ALLOC_CHECK(member_cnt * sizeof(ucg_group_member_index_t), "member list");
+    ucg_group_member_index_t *member_list = UCS_ALLOC_CHECK(member_cnt * sizeof(ucg_group_member_index_t),
+                                                            "member list");
     ucg_builtin_recursive_init_member_list(member_cnt, member_list);
 
     unsigned factor = config->recursive.factor;
@@ -828,6 +846,7 @@ ucs_status_t ucg_builtin_recursive_create(ucg_builtin_group_ctx_t *ctx,
         return UCS_ERR_NO_MEMORY;
     }
     memset(recursive, 0, alloc_size);
+
     ucs_status_t status = ucg_builtin_recursive_connect(ctx, my_rank, member_list, member_cnt, factor, 1, recursive);
     if (status != UCS_OK) {
         goto out;
@@ -842,3 +861,6 @@ out:
     member_list = NULL;
     return status;
 }
+
+UCG_BUILTIN_ALGO_REGISTER(barrier, COLL_TYPE_BARRIER, UCG_ALGORITHM_BARRIER_RECURSIVE, ucg_builtin_recursive_create);
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_RECURSIVE, ucg_builtin_recursive_create);

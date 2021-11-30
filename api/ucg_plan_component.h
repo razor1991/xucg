@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021.  All rights reserved.
  * Description: UCG plan component
  */
 
@@ -102,6 +102,7 @@ typedef struct ucg_base_plan {
     ucg_collective_type_t    type;
     ucs_list_link_t          op_head;   /**< List of requests following this plan */
     int                      op_cnt;
+
     /* Plan progress */
     ucg_plan_component_t    *planner;
     ucg_group_id_t           group_id;
@@ -114,7 +115,6 @@ typedef struct ucg_base_plan {
     /*  Attribute */
     int                      support_non_commutative;
     int                      support_large_datatype;
-
 } ucg_plan_t;
 
 enum ucg_request_common_flags {
@@ -244,7 +244,7 @@ struct ucg_plan_component {
         ucs_list_add_tail(&ucg_plan_components_list, &(_planc).list);          \
     }                                                                          \
     UCS_CONFIG_REGISTER_TABLE(_cfg_table, _name" planner", _cfg_prefix,        \
-                              _cfg_struct)
+                              _cfg_struct, &ucs_config_global_list)
 
 /* Helper function to generate a simple planner description */
 ucs_status_t ucg_plan_single(ucg_plan_component_t *planc,

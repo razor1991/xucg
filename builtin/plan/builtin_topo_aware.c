@@ -1,8 +1,7 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021. All rights reserved.
  * Description: Topo-aware algorithm
  */
-
 
 #include <math.h>
 #include  <ucs/debug/log.h>
@@ -13,8 +12,12 @@
 
 #include "builtin_plan.h"
 
-/**/
-
+/**
+ * Topo aware algorithm:
+ * max number of phases are determined by both tree & recursive
+ * MAX_PHASES for tree plan      is 4
+ * MAX_PHASES for recursive plan is 4 (namely it support 2^4 nodes !)
+ */
 #define MAX_PEERS 100
 #define MAX_PHASES 16
 
@@ -28,14 +31,16 @@ ucs_status_t ucg_builtin_topo_aware_add_intra(ucg_builtin_plan_t *topo_aware,
                                               enum ucg_builtin_plan_connect_pattern pattern)
 {
     ucs_status_t status = UCS_OK;
+
     unsigned num_group = 1;
     unsigned leader_shift = 0;
-    ucs_assert(member_cnt > 0);
 
+    ucs_assert(member_cnt > 0);
     if (member_cnt == 1) {
         ucs_debug("member_cnt is 1, skip adding intra-phase");
         return status;
     }
+
     switch (topo_type) {
         case UCG_PLAN_RECURSIVE:
             status = ucg_builtin_recursive_build(topo_aware, params->super.ctx, config,
@@ -54,7 +59,7 @@ ucs_status_t ucg_builtin_topo_aware_add_intra(ucg_builtin_plan_t *topo_aware,
             } else if (pattern == UCG_PLAN_PATTERN_ONE_TO_MANY) {
                 degree = config->trees.intra_degree_fanout;
             } else {
-                ucs_error("Plan patten should be either ONE_TO_MANY or MANY_TO_ONE for tree!");
+                ucs_error("Plan patten should be either ONE_TO_MANY or MANY_TO_ONE for tree!!");
                 return UCS_ERR_INVALID_PARAM;
             }
             status = ucg_builtin_kmtree_build(topo_aware, &params->super, config,
@@ -64,7 +69,7 @@ ucs_status_t ucg_builtin_topo_aware_add_intra(ucg_builtin_plan_t *topo_aware,
         }
         default:
             break;
-
     }
+
     return status;
 }

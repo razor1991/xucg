@@ -1,9 +1,10 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021.  All rights reserved.
  * Description: Binomial-tree and K-tree algorithm
  */
 
 #include "builtin_plan.h"
+#include "builtin_algo_mgr.h"
 #include <math.h>
 #include <ucs/debug/assert.h>
 #include <ucs/debug/log.h>
@@ -23,6 +24,7 @@
  * MAX_PHASES for recursive plan is 4 (namely it support 2^4 nodes !)
  */
 #define MAX_PHASES 10 /* till now, binomial tree can only support 2^MAX_PHASES process at most */
+
 
 ucs_config_field_t ucg_builtin_binomial_tree_config_table[] = {
     {"DEGREE_INTER_FANOUT", "8", "k-nomial tree degree for inter node with fanout process.\n",
@@ -58,82 +60,6 @@ enum ucg_builtin_tree_direction {
     UCG_PLAN_RIGHT_MOST_TREE
 };
 
-static void ucg_builtin_bmtree_algo_build_left(unsigned rank,
-                                                       unsigned root,
-                                                       unsigned size,
-                                                       ucg_group_member_index_t *up, unsigned *up_cnt,
-                                                       ucg_group_member_index_t *down, unsigned *down_cnt)
-{
-    ucs_assert(size > 0);
-
-    unsigned num_child = 0;
-    unsigned vrank, mask, remote;
-    unsigned value;
-    vrank = (rank - root + size) % size;
-
-    value = vrank;
-
-    for (mask = 1; value > 0; value >>= 1, mask <<= 1) {};  /* empty */
-
-    /* find parent */
-    if (root == rank) {
-        *up_cnt = 0;
-    } else {
-        remote = vrank ^ (mask >> 1);
-        up[0]  = (remote + root) % size;
-        *up_cnt = 1;
-    }
-
-    /* find children */
-    while (mask < size) {
-        remote = vrank ^ mask;
-        if (remote >= size) {
-            break;
-        }
-        down[num_child] = (remote + root) % size;
-        num_child++;
-        mask <<= 1;
-    }
-
-    *down_cnt = num_child;
-}
-
-static void ucg_builtin_bmtree_algo_build_right(unsigned rank,
-                                                        unsigned root,
-                                                        unsigned size,
-                                                        ucg_group_member_index_t *up, unsigned *up_cnt,
-                                                        ucg_group_member_index_t *down, unsigned *down_cnt)
-{
-    ucs_assert(size > 0);
-
-    unsigned num_child = 0;
-    unsigned vrank;
-    unsigned mask = 1;
-    unsigned remote;
-
-    vrank = (rank - root + size) % size;
-
-    if (root == rank) {
-        *up_cnt = 0;
-    }
-
-    while (mask < size) {
-        remote = vrank ^ mask;
-        if (remote < vrank) {
-            up[0] = (remote + root) % size;
-            *up_cnt = 1;
-            break;
-        } else if (remote < size) {
-            down[num_child] = (remote + root) % size;
-            num_child++;
-        }
-        mask <<= 1;
-    }
-
-    *down_cnt = num_child;
-}
-
-
 static ucs_status_t ucg_builtin_get_rank(const ucg_group_member_index_t *member_list,
                                          unsigned size,
                                          unsigned root,
@@ -160,47 +86,6 @@ static ucs_status_t ucg_builtin_get_rank(const ucg_group_member_index_t *member_
     if (root_num != 1 || rank_num != 1) {
         ucs_error("Invalid member list: has %u myself and %u root/subroot", rank_num, root_num);
         return UCS_ERR_INVALID_PARAM;
-    }
-
-    return UCS_OK;
-}
-
-/* Function:
-        input : member_list, size(bmtree size), rank(my own rank), root, tree_direction;
-        output: left-most (FANOUT) / right-most (FANIN)
-                Binomial tree { father info: up  (father), up_cnt  (father count)
-                                child  info: down (child), down_cnt(child  count) }
-*/
-ucs_status_t ucg_builtin_bmtree_algo_build(const ucg_group_member_index_t *member_list, unsigned size,
-                                           unsigned rank, unsigned root, enum ucg_builtin_tree_direction direction,
-                                           ucg_group_member_index_t *up, unsigned *up_cnt,
-                                           ucg_group_member_index_t *down, unsigned *down_cnt)
-{
-    ucs_status_t status = ucg_builtin_get_rank(member_list, size, root, &rank);
-    if (status != UCS_OK) {
-        return status;
-    }
-
-    /* Notes: rank & root both corresponds index in member_list */
-    if (direction == UCG_PLAN_LEFT_MOST_TREE) {
-        /* left-most Binomial Tree */
-        ucg_builtin_bmtree_algo_build_left(rank, root, size, up, up_cnt, down, down_cnt);
-    } else if (direction == UCG_PLAN_RIGHT_MOST_TREE) {
-        /* right-most Binomial Tree */
-        ucg_builtin_bmtree_algo_build_right(rank, root, size, up, up_cnt, down, down_cnt);
-    } else {
-        ucs_error("Invalid tree direction");
-        return UCS_ERR_INVALID_PARAM;
-    }
-
-    unsigned idx;
-    /* convert index to real rank */
-    for (idx = 0; idx < *up_cnt; idx++) {
-        up[idx] = member_list[up[idx]];
-    }
-
-    for (idx = 0; idx < *down_cnt; idx++) {
-        down[idx] = member_list[down[idx]];
     }
 
     return UCS_OK;
@@ -304,6 +189,48 @@ static ucs_status_t ucg_builtin_kmtree_algo_build_right(unsigned rank,
     /* change the order of children from leftmost to rightmost */
     for (i = *down_cnt - 1; i >= 0; i--) {
         down[*down_cnt - 1 - i] = down_temp[i];
+    }
+
+    return UCS_OK;
+}
+
+/* Function:
+        input : member_list, size(bmtree size), rank(my own rank), root, tree_direction;
+        output: left-most (FANOUT) / right-most (FANIN)
+                Binomial tree { father info: up  (father), up_cnt  (father count)
+                                child  info: down (child), down_cnt(child  count) }
+*/
+ucs_status_t ucg_builtin_bmtree_algo_build(const ucg_group_member_index_t *member_list, unsigned size,
+                                           unsigned rank, unsigned root, enum ucg_builtin_tree_direction direction,
+                                           ucg_group_member_index_t *up, unsigned *up_cnt,
+                                           ucg_group_member_index_t *down, unsigned *down_cnt)
+{
+    ucs_status_t status = ucg_builtin_get_rank(member_list, size, root, &rank);
+    if (status != UCS_OK) {
+        return status;
+    }
+
+    const unsigned degree = 2;
+    /* Notes: rank & root both corresponds index in member_list */
+    if (direction == UCG_PLAN_LEFT_MOST_TREE) {
+        /* left-most Binomial Tree */
+        status = ucg_builtin_kmtree_algo_build_left(rank, root, size, degree, up, up_cnt, down, down_cnt);
+    } else if (direction == UCG_PLAN_RIGHT_MOST_TREE) {
+        /* right-most Binomial Tree */
+        status = ucg_builtin_kmtree_algo_build_right(rank, root, size, degree, up, up_cnt, down, down_cnt);
+    } else {
+        ucs_error("Invalid tree direction");
+        return UCS_ERR_INVALID_PARAM;
+    }
+
+    unsigned idx;
+    /* convert index to real rank */
+    for (idx = 0; idx < *up_cnt; idx++) {
+        up[idx] = member_list[up[idx]];
+    }
+
+    for (idx = 0; idx < *down_cnt; idx++) {
+        down[idx] = member_list[down[idx]];
     }
 
     return UCS_OK;
@@ -536,7 +463,6 @@ static ucs_status_t ucg_builtin_tree_inter_fanin_connect(const ucg_builtin_binom
         for (member_idx = down_fanin_cnt; member_idx < down_fanin_cnt + up_fanin_cnt; member_idx++) {
             down_fanin[member_idx] = up_fanin[member_idx - down_fanin_cnt];
         }
-
         status = ucg_builtin_binomial_tree_connect_phase((*phase)++, params, tree->phs_cnt, eps, down_fanin,
                                                          down_fanin_cnt + up_fanin_cnt, fanin_method);
     }
@@ -582,7 +508,6 @@ static ucs_status_t ucg_builtin_tree_inter_fanout_connect(const ucg_builtin_bino
         for (member_idx = up_cnt; member_idx < up_cnt + down_cnt; member_idx++) {
             up[member_idx] = down[member_idx - up_cnt];
         }
-
         status = ucg_builtin_binomial_tree_connect_phase(phase, params, tree->phs_cnt + 1, eps, up, up_cnt + down_cnt,
                                                          fanout_method);
     }
@@ -690,7 +615,6 @@ static ucs_status_t ucg_builtin_binomial_tree_inter_fanout_connect(const ucg_bui
         for (member_idx = up_cnt; member_idx < up_cnt + down_cnt; member_idx++) {
             up[member_idx] = down[member_idx - up_cnt];
         }
-
         status = ucg_builtin_binomial_tree_connect_phase(phase, params, 0, eps, up, up_cnt + down_cnt, fanout_method);
     }
     return status;
@@ -784,7 +708,8 @@ static ucs_status_t ucg_builtin_binomial_tree_inter_fanout_create(const ucg_buil
             }
         }
         ucg_group_member_index_t *member_list = NULL;
-        status = ucg_builtin_prepare_inter_fanout_member_idx(params, size, ppx, is_use_topo_info, node_idx, &root, topo_params, subroot_array, &member_list);
+        status = ucg_builtin_prepare_inter_fanout_member_idx(params, size, ppx, is_use_topo_info, node_idx, &root,
+                                                             topo_params, subroot_array, &member_list);
         if (status != UCS_OK) {
             return status;
         }
@@ -1072,26 +997,25 @@ static ucs_status_t ucg_builtin_binomial_tree_connect_fanin_fanout(ucg_builtin_p
 
     if (params->topo_type == UCG_PLAN_TREE_FANIN_FANOUT) {
         inter_node_topo_type = (ucg_algo.kmtree == 1) ? UCG_PLAN_TREE_FANIN_FANOUT : UCG_PLAN_RECURSIVE;
-#if ENABLE_UCG_HICOLL
-        if (ucg_algo.inc && inc_used(params->group_params)) {
+        if (ucg_algo.inc && UCG_BUILTIN_INC_CHECK(inc_used, params->group_params)) {
             inter_node_topo_type = UCG_PLAN_INC;
         }
-#endif
         /* For fanin-fanout (e.g. allreduce) - copy existing connections */
         /* recursive or k-nomial tree for inter-nodes */
         /* especially for k-nomial tree, socket-aware algorithm (topo_level) ppx should be replaced by real ppn */
         if (inter_node_topo_type == UCG_PLAN_RECURSIVE && ucg_algo.topo_level == UCG_GROUP_HIERARCHY_LEVEL_L3CACHE) {
             status = ucg_builtin_binomial_tree_add_inter(tree, &tree->phss[(ppx > 1) ? 1 : 0], params, eps,
                 inter_node_topo_type, &phs_inc_cnt, &step_inc_cnt, (ppx != 1) ? pps : ppx, topo_params);
-        } else if (inter_node_topo_type == UCG_PLAN_INC) {
-#if ENABLE_UCG_HICOLL
-            status = ucg_builtin_add_inc(tree, &tree->phss[ppx > 1 ? 1 : 0], params, eps, &phs_inc_cnt, &step_inc_cnt,
+        } 
+        else if (inter_node_topo_type == UCG_PLAN_INC) {
+            status = ucg_inc.ucg_builtin_add_inc_f(tree, &tree->phss[ppx > 1 ? 1 : 0], params, eps, &phs_inc_cnt, &step_inc_cnt,
                 (ucg_algo.kmtree == 1 && ucg_algo.topo_level && ppx != 1) ? ppx * SPN : ppx, ucg_algo.topo_level);
-#endif
-        } else {
+        } 
+        else {
             status = ucg_builtin_binomial_tree_add_inter(tree, &tree->phss[(ppx > 1) ? 1 : 0], params, eps,
                                                          inter_node_topo_type, &phs_inc_cnt, &step_inc_cnt,
-                                                         (ucg_algo.kmtree == 1 && ucg_algo.topo_level && ppx != 1) ? ppx * SPN : ppx, topo_params);
+                                                         (ucg_algo.kmtree == 1 && ucg_algo.topo_level && ppx != 1) ?
+                                                         ppx * SPN : ppx, topo_params);
         }
         if (status != UCS_OK) {
             return status;
@@ -1101,7 +1025,8 @@ static ucs_status_t ucg_builtin_binomial_tree_connect_fanin_fanout(ucg_builtin_p
         if (inter_node_topo_type != UCG_PLAN_RECURSIVE) {
             tree->phs_cnt += phs_inc_cnt;
         }
-        status = ucg_builtin_tree_connect_fanout(step_inc_cnt, tree, params, up, up_cnt, down, down_cnt, fanout_method, eps);
+        status = ucg_builtin_tree_connect_fanout(step_inc_cnt, tree, params, up, up_cnt, down, down_cnt, fanout_method,
+                                                 eps);
 
         if (ppx > 1) {
             tree->phss[1 + phs_inc_cnt].step_index = 1 + step_inc_cnt;
@@ -1128,17 +1053,13 @@ static ucs_status_t ucg_builtin_topo_tree_connect_fanout(ucg_builtin_plan_t *tre
     enum ucg_builtin_plan_topology_type inter_node_topo_type;
     inter_node_topo_type = UCG_PLAN_TREE_FANOUT;
 
-    int can_use_inc = 0;
-#if ENABLE_UCG_HICOLL
-    can_use_inc = ucg_algo.inc && inc_used(params->group_params);
-#endif
-    if (can_use_inc) {
+    if (ucg_algo.inc && UCG_BUILTIN_INC_CHECK(inc_used, params->group_params)) {  
         inter_node_topo_type = UCG_PLAN_INC;
-#if ENABLE_UCG_HICOLL
-        status = ucg_builtin_add_inc(tree, &tree->phss[0], params, eps, &phs_inc_cnt, &step_inc_cnt, ppx,
-                                     ucg_algo.topo_level);
-#endif
-    } else {
+        status = ucg_inc.ucg_builtin_add_inc_f(tree, &tree->phss[0], params, eps, &phs_inc_cnt, &step_inc_cnt,
+                                                ppx, ucg_algo.topo_level);
+    } else 
+
+    {
         /* binomial tree for inter-nodes */
         status = ucg_builtin_binomial_tree_add_inter(tree, &tree->phss[0], params, eps, inter_node_topo_type,
                                                     &phs_inc_cnt, &step_inc_cnt, ppx, topo_params);
@@ -1241,7 +1162,8 @@ static inline ucs_status_t ucg_builtin_binomial_tree_connect_fanout(ucg_builtin_
 {
     ucs_status_t status;
     if (ucg_algo.topo) {
-        status = ucg_builtin_topo_tree_connect_fanout(tree, params, up, up_cnt, down, down_cnt, ppx, fanout_method, eps, topo_params);
+        status = ucg_builtin_topo_tree_connect_fanout(tree, params, up, up_cnt, down, down_cnt, ppx, fanout_method, eps,
+                                                      topo_params);
     } else {
         status = ucg_builtin_non_topo_tree_connect_fanout(tree, params, up, up_cnt, down, down_cnt,
                                                           ppx, fanout_method, eps, topo_params);
@@ -1274,8 +1196,10 @@ static ucs_status_t ucg_builtin_binomial_tree_connect(ucg_builtin_plan_t *tree,
         ucs_assert(up_cnt + down_cnt > 0);
     }
 
-    enum ucg_builtin_plan_method_type fanin_method = ucg_builtin_calculate_plan_method_type(mod, UCG_GROUP_COLLECTIVE_MODIFIER_AGGREGATE, up_fanin_cnt, down_fanin_cnt);
-    enum ucg_builtin_plan_method_type fanout_method = ucg_builtin_calculate_plan_method_type(mod, UCG_GROUP_COLLECTIVE_MODIFIER_BROADCAST, up_cnt, down_cnt);
+    enum ucg_builtin_plan_method_type fanin_method = ucg_builtin_calculate_plan_method_type(mod,
+        UCG_GROUP_COLLECTIVE_MODIFIER_AGGREGATE, up_fanin_cnt, down_fanin_cnt);
+    enum ucg_builtin_plan_method_type fanout_method = ucg_builtin_calculate_plan_method_type(mod,
+        UCG_GROUP_COLLECTIVE_MODIFIER_BROADCAST, up_cnt, down_cnt);
 
     switch (params->topo_type) {
         case UCG_PLAN_TREE_FANIN:
@@ -1353,6 +1277,7 @@ static ucs_status_t ucg_builtin_kinomial_tree_build_intra(const ucg_builtin_bino
         ucs_debug("degree:%d, myrank:%lu, uprank:%lu, offset:%d, down_fanin_cnt:%u, root:%u, size:%u",
                    degree, rank, up_fanin[0], tree->super.up_offset, *down_fanin_cnt, root, *ppx);
     }
+
     return status;
 }
 
@@ -1410,8 +1335,8 @@ static ucs_status_t ucg_builtin_binomial_tree_build_intra(const ucg_builtin_bino
     /* index of root must be 0 in topo_params */
     unsigned root_idx = (is_use_topo_params) ? 0 : (root % *ppx);
     ucs_status_t status;
-    status = ucg_builtin_bmtree_algo_build_fanin_fanout(member_list, *ppx, rank, root_idx, up, up_cnt, down, down_cnt, up_fanin,
-                                                        up_fanin_cnt, down_fanin, down_fanin_cnt);
+    status = ucg_builtin_bmtree_algo_build_fanin_fanout(member_list, *ppx, rank, root_idx, up, up_cnt, down,
+                                                        down_cnt, up_fanin, up_fanin_cnt, down_fanin, down_fanin_cnt);
     if (status != UCS_OK) {
         return status;
     }
@@ -1428,6 +1353,7 @@ static ucs_status_t ucg_builtin_binomial_tree_build_intra(const ucg_builtin_bino
         ucs_debug("degree:%d, myrank:%lu, uprank:%lu, offset:%d, root:%u, size:%u",
                    degree, rank, up_fanin[0], tree->super.up_offset, root, *ppx);
     }
+
     return status;
 }
 
@@ -1516,6 +1442,7 @@ static ucs_status_t ucg_builtin_topo_tree_build(const ucg_builtin_binomial_tree_
     ucg_group_member_index_t *member_list = (ucg_group_member_index_t *)(UCS_ALLOC_CHECK(alloc_size, "member list"));
     memset(member_list, 0, alloc_size);
 
+
     ucg_builtin_prepare_member_idx(params, topo_params, domain_distance, ppx, rank, member_list);
 
     if (*ppx > 1) {
@@ -1553,7 +1480,8 @@ static ucs_status_t ucg_builtin_binomial_tree_algo_build(ucg_group_member_index_
 {
     ucs_status_t status;
 
-    status = ucg_builtin_bmtree_algo_build(member_list, size, rank, root, UCG_PLAN_LEFT_MOST_TREE, up, up_cnt, down, down_cnt);
+    status = ucg_builtin_bmtree_algo_build(member_list, size, rank, root, UCG_PLAN_LEFT_MOST_TREE, up, up_cnt, down,
+                                           down_cnt);
     if (status != UCS_OK) {
         ucs_free(member_list);
         member_list = NULL;
@@ -1732,7 +1660,7 @@ ucs_status_t ucg_builtin_binomial_tree_create(ucg_builtin_group_ctx_t *ctx,
                                               enum ucg_builtin_plan_topology_type plan_topo_type,
                                               const ucg_builtin_config_t *config,
                                               const ucg_group_params_t *group_params,
-                                              const ucg_collective_type_t *coll_type,
+                                              const ucg_collective_params_t *coll_params,
                                               ucg_builtin_plan_t **plan_p)
 {
     /* Allocate worst-case memory footprint, resized down later */
@@ -1749,10 +1677,10 @@ ucs_status_t ucg_builtin_binomial_tree_create(ucg_builtin_group_ctx_t *ctx,
     /* tree discovery and construction, by phase */
     ucg_builtin_binomial_tree_params_t params = {
         .ctx = ctx,
-        .coll_type = coll_type,
+        .coll_type = &coll_params->type,
         .topo_type = plan_topo_type,
         .group_params = group_params,
-        .root = coll_type->root,
+        .root = coll_params->type.root,
         .tree_degree_inter_fanout = config->bmtree.degree_inter_fanout,
         .tree_degree_inter_fanin  = config->bmtree.degree_inter_fanin,
         .tree_degree_intra_fanout = config->bmtree.degree_intra_fanout,
@@ -1772,3 +1700,22 @@ ucs_status_t ucg_builtin_binomial_tree_create(ucg_builtin_group_ctx_t *ctx,
     ucs_assert(*plan_p != NULL); /* only reduces size - should never fail */
     return UCS_OK;
 }
+
+UCG_BUILTIN_ALGO_REGISTER(barrier, COLL_TYPE_BARRIER, UCG_ALGORITHM_BARRIER_NODE_AWARE_RECURSIVE_AND_BMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(barrier, COLL_TYPE_BARRIER, UCG_ALGORITHM_BARRIER_SOCKET_AWARE_RECURSIVE_AND_BMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(barrier, COLL_TYPE_BARRIER, UCG_ALGORITHM_BARRIER_NODE_AWARE_RECURSIVE_AND_KMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(barrier, COLL_TYPE_BARRIER, UCG_ALGORITHM_BARRIER_SOCKET_AWARE_RECURSIVE_AND_KMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(barrier, COLL_TYPE_BARRIER, UCG_ALGORITHM_BARRIER_NODE_AWARE_KMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(barrier, COLL_TYPE_BARRIER, UCG_ALGORITHM_BARRIER_SOCKET_AWARE_KMTREE, ucg_builtin_binomial_tree_create);
+
+UCG_BUILTIN_ALGO_REGISTER(bcast, COLL_TYPE_BCAST, UCG_ALGORITHM_BCAST_BMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(bcast, COLL_TYPE_BCAST, UCG_ALGORITHM_BCAST_NODE_AWARE_BMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(bcast, COLL_TYPE_BCAST, UCG_ALGORITHM_BCAST_NODE_AWARE_KMTREE_AND_BMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(bcast, COLL_TYPE_BCAST, UCG_ALGORITHM_BCAST_NODE_AWARE_KMTREE, ucg_builtin_binomial_tree_create);
+
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_RECURSIVE_AND_BMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_RECURSIVE_AND_BMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_RECURSIVE_AND_KMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_RECURSIVE_AND_KMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_NODE_AWARE_KMTREE, ucg_builtin_binomial_tree_create);
+UCG_BUILTIN_ALGO_REGISTER(allreduce, COLL_TYPE_ALLREDUCE, UCG_ALGORITHM_ALLREDUCE_SOCKET_AWARE_KMTREE, ucg_builtin_binomial_tree_create);

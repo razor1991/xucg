@@ -1,6 +1,8 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021.  ALL RIGHTS RESERVED.
- * See file LICENSE for terms.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2021.  All rights reserved.
+ * Description: UCG builtin plan cache mechanism
+ * Author: shizhibao
+ * Create: 2021-08-06
  */
 
 #include <ucs/debug/log.h>
@@ -35,6 +37,7 @@ static inline unsigned ucg_collective_compare_full_coll_params(ucg_group_h group
                        (!memcmp(left->send.displs, right->send.displs, send_counts_len)) &&
                        (!memcmp(left->recv.counts, right->recv.counts, send_counts_len)) &&
                        (!memcmp(left->recv.displs, right->recv.displs, send_counts_len));
+    
     return is_same;
 }
 
@@ -49,12 +52,14 @@ ucs_status_t ucg_builtin_pcache_init(ucg_group_h group)
         group->builtin_pcache[coll_type] = (ucg_plan_t **)UCS_ALLOC_CHECK(alloc_size, "builtin_pcache");
         memset(group->builtin_pcache[coll_type], 0, alloc_size);
     }
+
     return UCS_OK;
 }
 
 void ucg_builtin_pcache_destroy(ucg_group_h group)
 {
     coll_type_t coll_type;
+
     for (coll_type = 0; coll_type < COLL_TYPE_NUMS; coll_type++) {
         if (group->builtin_pcache[coll_type]) {
             ucs_free(group->builtin_pcache[coll_type]);
@@ -66,6 +71,7 @@ void ucg_builtin_pcache_destroy(ucg_group_h group)
 static ucg_plan_t *ucg_builtin_alltoallv_pcache_find(const ucg_group_h group, int algo,
                                                      const ucg_collective_params_t *coll_params)
 {
+    /* Alltoallv does not support plan reuse. */
     return NULL;
 }
 
@@ -104,11 +110,13 @@ void ucg_builtin_pcache_update(ucg_group_h group, ucg_plan_t *plan, int algo,
             plan_old = group->builtin_pcache[coll_type][pos];
             group->builtin_pcache[coll_type][pos] = plan;
             break;
+
         default:
             plan_old = group->builtin_pcache[coll_type][algo - 1];
             group->builtin_pcache[coll_type][algo - 1] = plan;
             break;
     }
+
     if (plan_old) {
         builtin_plan = ucs_derived_of(plan_old, ucg_builtin_plan_t);
         ucg_builtin_destroy_plan(builtin_plan, group);

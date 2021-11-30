@@ -1,6 +1,6 @@
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2019-2021. ALL RIGHTS RESERVED.
- * See file LICENSE for terms.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2019-2021. All rights reserved.
+ * Description: UCG common defination
  */
 
 #ifndef UCG_DEF_H_
@@ -65,6 +65,5 @@ typedef uint64_t                         ucg_group_member_index_t;
  *                        returned.
  */
 typedef void (*ucg_collective_callback_t)(void *request, ucs_status_t status);
-
 
 #endif

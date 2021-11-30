@@ -125,7 +125,7 @@ typedef struct inc_params {
     uint32_t spine_select;        /* selected spine ip in 2-layer networking */
     uint8_t coll_operation_type;  /* supported collective operation */
     uint16_t data_operation_type; /* supported  allreduce operation type */
-    uint16_t data_type;           /* supported collective data type */
+    uint16_t data_type;           /* supported colletive data type */
     uint16_t max_data_size;       /* max data size in INC without padding */
     int node_under_tor;           /* node/socket num under the tor */
     unsigned header_under_tor;    /* for now, the minimum rank under the tor */
@@ -182,9 +182,13 @@ typedef struct ucg_group_params {
 
     dt_convert_f mpi_dt_convert;
 
+    int (*mpi_dt_is_predefine)(void *mpi_dt);
+
     /* Callback function for get rank in MPI_COMM_WORLD */
     ucg_group_member_index_t (*mpi_global_idx_f) (void *cb_group_obj, ucg_group_member_index_t index);
+    
     rank_dist_f mpi_rank_distance;
+    
     dt_span_f mpi_datatype_span;
 
     int (*get_operate_param_f)(void *mpi_op, void *mpi_dt, int *op, int *dt);
@@ -219,7 +223,6 @@ typedef struct ucg_collective {
     } send, recv;
 
     ucg_collective_callback_t comp_cb; /* completion callback */
-
 } ucg_collective_params_t;
 
 
@@ -293,6 +296,7 @@ unsigned ucg_worker_progress(ucg_worker_h worker);
  * @param [in]  group       Group object to query.
  */
 const ucg_group_params_t* ucg_group_get_params(ucg_group_h group);
+
 /**
  * @ingroup UCG_GROUP
  * @brief Get group member count.
@@ -318,7 +322,6 @@ ucg_group_member_index_t ucg_group_get_member_count(ucg_group_h group);
 ucs_status_t ucg_collective_create(ucg_group_h group,
                                    ucg_collective_params_t *params,
                                    ucg_coll_h *coll);
-
 
 /**
  * @ingroup UCG_GROUP
@@ -386,6 +389,8 @@ void ucg_collective_destroy(ucg_coll_h coll);
  * @return Error code as defined by @ref ucs_status_t
  */
 ucs_status_t ucg_request_check_status(void *request);
+
+
 /**
  * @ingroup UCG_GROUP
  * @brief Cancel an outstanding communications request.
@@ -396,6 +401,8 @@ ucs_status_t ucg_request_check_status(void *request);
  * This routine tries to cancels an outstanding communication request.
  */
 void ucg_request_cancel(ucg_worker_h worker, void *request);
+
+
 /**
  * @ingroup UCG_GROUP
  * @brief Release a communications request.
@@ -423,12 +430,7 @@ ucs_status_t ucg_init(const ucp_params_t *params,
 ucs_status_t ucg_worker_create(ucp_context_h context,
                                const ucp_worker_params_t *params,
                                ucp_worker_h *worker_p);
-
-ucs_status_t ucg_collective_check_input(ucg_group_h group,
-                                        const ucg_collective_params_t *params,
-                                        const ucg_coll_h *coll);
-
-
+                                
 END_C_DECLS
 
 #endif

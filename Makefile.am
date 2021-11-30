@@ -5,9 +5,9 @@
 
 if HAVE_UCG
 
-SUBDIRS = base builtin hicoll
+SUBDIRS = base builtin
 
-UCG_VERSION=2:0:1
+UCG_VERSION=2:1:1
 
 lib_LTLIBRARIES    = libucg.la
 libucg_la_CFLAGS   = $(BASE_CFLAGS)
