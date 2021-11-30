@@ -60,82 +60,6 @@ enum ucg_builtin_tree_direction {
     UCG_PLAN_RIGHT_MOST_TREE
 };
 
-static void ucg_builtin_bmtree_algo_build_left(unsigned rank,
-                                                       unsigned root,
-                                                       unsigned size,
-                                                       ucg_group_member_index_t *up, unsigned *up_cnt,
-                                                       ucg_group_member_index_t *down, unsigned *down_cnt)
-{
-    ucs_assert(size > 0);
-
-    unsigned num_child = 0;
-    unsigned vrank, mask, remote;
-    unsigned value;
-    vrank = (rank - root + size) % size;
-
-    value = vrank;
-
-    for (mask = 1; value > 0; value >>= 1, mask <<= 1) {};  /* empty */
-
-    /* find parent */
-    if (root == rank) {
-        *up_cnt = 0;
-    } else {
-        remote = vrank ^ (mask >> 1);
-        up[0]  = (remote + root) % size;
-        *up_cnt = 1;
-    }
-
-    /* find children */
-    while (mask < size) {
-        remote = vrank ^ mask;
-        if (remote >= size) {
-            break;
-        }
-        down[num_child] = (remote + root) % size;
-        num_child++;
-        mask <<= 1;
-    }
-
-    *down_cnt = num_child;
-}
-
-static void ucg_builtin_bmtree_algo_build_right(unsigned rank,
-                                                        unsigned root,
-                                                        unsigned size,
-                                                        ucg_group_member_index_t *up, unsigned *up_cnt,
-                                                        ucg_group_member_index_t *down, unsigned *down_cnt)
-{
-    ucs_assert(size > 0);
-
-    unsigned num_child = 0;
-    unsigned vrank;
-    unsigned mask = 1;
-    unsigned remote;
-
-    vrank = (rank - root + size) % size;
-
-    if (root == rank) {
-        *up_cnt = 0;
-    }
-
-    while (mask < size) {
-        remote = vrank ^ mask;
-        if (remote < vrank) {
-            up[0] = (remote + root) % size;
-            *up_cnt = 1;
-            break;
-        } else if (remote < size) {
-            down[num_child] = (remote + root) % size;
-            num_child++;
-        }
-        mask <<= 1;
-    }
-
-    *down_cnt = num_child;
-}
-
-
 static ucs_status_t ucg_builtin_get_rank(const ucg_group_member_index_t *member_list,
                                          unsigned size,
                                          unsigned root,
@@ -162,47 +86,6 @@ static ucs_status_t ucg_builtin_get_rank(const ucg_group_member_index_t *member_
     if (root_num != 1 || rank_num != 1) {
         ucs_error("Invalid member list: has %u myself and %u root/subroot", rank_num, root_num);
         return UCS_ERR_INVALID_PARAM;
-    }
-
-    return UCS_OK;
-}
-
-/* Function:
-        input : member_list, size(bmtree size), rank(my own rank), root, tree_direction;
-        output: left-most (FANOUT) / right-most (FANIN)
-                Binomial tree { father info: up  (father), up_cnt  (father count)
-                                child  info: down (child), down_cnt(child  count) }
-*/
-ucs_status_t ucg_builtin_bmtree_algo_build(const ucg_group_member_index_t *member_list, unsigned size,
-                                           unsigned rank, unsigned root, enum ucg_builtin_tree_direction direction,
-                                           ucg_group_member_index_t *up, unsigned *up_cnt,
-                                           ucg_group_member_index_t *down, unsigned *down_cnt)
-{
-    ucs_status_t status = ucg_builtin_get_rank(member_list, size, root, &rank);
-    if (status != UCS_OK) {
-        return status;
-    }
-
-    /* Notes: rank & root both corresponds index in member_list */
-    if (direction == UCG_PLAN_LEFT_MOST_TREE) {
-        /* left-most Binomial Tree */
-        ucg_builtin_bmtree_algo_build_left(rank, root, size, up, up_cnt, down, down_cnt);
-    } else if (direction == UCG_PLAN_RIGHT_MOST_TREE) {
-        /* right-most Binomial Tree */
-        ucg_builtin_bmtree_algo_build_right(rank, root, size, up, up_cnt, down, down_cnt);
-    } else {
-        ucs_error("Invalid tree direction");
-        return UCS_ERR_INVALID_PARAM;
-    }
-
-    unsigned idx;
-    /* convert index to real rank */
-    for (idx = 0; idx < *up_cnt; idx++) {
-        up[idx] = member_list[up[idx]];
-    }
-
-    for (idx = 0; idx < *down_cnt; idx++) {
-        down[idx] = member_list[down[idx]];
     }
 
     return UCS_OK;
@@ -306,6 +189,48 @@ static ucs_status_t ucg_builtin_kmtree_algo_build_right(unsigned rank,
     /* change the order of children from leftmost to rightmost */
     for (i = *down_cnt - 1; i >= 0; i--) {
         down[*down_cnt - 1 - i] = down_temp[i];
+    }
+
+    return UCS_OK;
+}
+
+/* Function:
+        input : member_list, size(bmtree size), rank(my own rank), root, tree_direction;
+        output: left-most (FANOUT) / right-most (FANIN)
+                Binomial tree { father info: up  (father), up_cnt  (father count)
+                                child  info: down (child), down_cnt(child  count) }
+*/
+ucs_status_t ucg_builtin_bmtree_algo_build(const ucg_group_member_index_t *member_list, unsigned size,
+                                           unsigned rank, unsigned root, enum ucg_builtin_tree_direction direction,
+                                           ucg_group_member_index_t *up, unsigned *up_cnt,
+                                           ucg_group_member_index_t *down, unsigned *down_cnt)
+{
+    ucs_status_t status = ucg_builtin_get_rank(member_list, size, root, &rank);
+    if (status != UCS_OK) {
+        return status;
+    }
+
+    const unsigned degree = 2;
+    /* Notes: rank & root both corresponds index in member_list */
+    if (direction == UCG_PLAN_LEFT_MOST_TREE) {
+        /* left-most Binomial Tree */
+        status = ucg_builtin_kmtree_algo_build_left(rank, root, size, degree, up, up_cnt, down, down_cnt);
+    } else if (direction == UCG_PLAN_RIGHT_MOST_TREE) {
+        /* right-most Binomial Tree */
+        status = ucg_builtin_kmtree_algo_build_right(rank, root, size, degree, up, up_cnt, down, down_cnt);
+    } else {
+        ucs_error("Invalid tree direction");
+        return UCS_ERR_INVALID_PARAM;
+    }
+
+    unsigned idx;
+    /* convert index to real rank */
+    for (idx = 0; idx < *up_cnt; idx++) {
+        up[idx] = member_list[up[idx]];
+    }
+
+    for (idx = 0; idx < *down_cnt; idx++) {
+        down[idx] = member_list[down[idx]];
     }
 
     return UCS_OK;
