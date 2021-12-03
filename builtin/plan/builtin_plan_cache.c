@@ -19,28 +19,6 @@ const static int cache_size[COLL_TYPE_NUMS] = {
     UCG_ALGORITHM_ALLTOALLV_LAST - 1,
 };
 
-static inline unsigned ucg_collective_compare_basic_coll_params(const ucg_collective_params_t *left,
-                                                                const ucg_collective_params_t *right)
-{
-    return !memcmp(left, right, sizeof(ucg_collective_params_t));
-}
-
-static inline unsigned ucg_collective_compare_full_coll_params(ucg_group_h group,
-                                                               const ucg_collective_params_t *left,
-                                                               const ucg_collective_params_t *right)
-{
-    ucg_group_member_index_t member_count = ucg_group_get_member_count(group);
-    int send_counts_len = member_count * sizeof(int);
-
-    unsigned is_same = ucg_collective_compare_basic_coll_params(left, right) &&
-                       (!memcmp(left->send.counts, right->send.counts, send_counts_len)) &&
-                       (!memcmp(left->send.displs, right->send.displs, send_counts_len)) &&
-                       (!memcmp(left->recv.counts, right->recv.counts, send_counts_len)) &&
-                       (!memcmp(left->recv.displs, right->recv.displs, send_counts_len));
-    
-    return is_same;
-}
-
 ucs_status_t ucg_builtin_pcache_init(ucg_group_h group)
 {
     coll_type_t coll_type;
