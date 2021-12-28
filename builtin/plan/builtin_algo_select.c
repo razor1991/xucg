@@ -25,7 +25,13 @@ typedef enum {
     SIZE_LEVEL_2KB, /* 1025-2048 byte */
     SIZE_LEVEL_4KB, /* 2049-4096 byte */
     SIZE_LEVEL_8KB, /* 4097-8192 byte */
-    SIZE_LEVEL_1MB, /* 8193-1048576 byte */
+    SIZE_LEVEL_16KB, /* 8193-16384 byte */
+    SIZE_LEVEL_32KB, /* 16385-32768 byte */
+    SIZE_LEVEL_64KB, /* 32769-65536 byte */
+    SIZE_LEVEL_128KB, /* 65537-131072 byte */
+    SIZE_LEVEL_256KB, /* 131073-262144 byte */
+    SIZE_LEVEL_512KB, /* 262145-524288 byte */
+    SIZE_LEVEL_1MB, /* 524289-1048576 byte */
     SIZE_LEVEL_LG, /* > 1048576 byte */
     /* The new size level must be added above */
     SIZE_LEVEL_NUMS
@@ -54,7 +60,7 @@ typedef enum {
 
 const static int barrier_algo_tbl[PPN_LEVEL_NUMS][NODE_LEVEL_NUMS] = {
     /* NODE_LEVEL_4, 8, 16, 32, LG */
-    {10, 7, 2, 6, 4}, /* PPN_LEVEL_4 */
+    {10, 6, 2, 6, 4}, /* PPN_LEVEL_4 */
     {10, 10, 2, 6, 7}, /* PPN_LEVEL_8 */
     {10, 10, 10, 7, 7}, /* PPN_LEVEL_16 */
     {10, 10, 10, 10, 6}, /* PPN_LEVEL_32 */
@@ -63,109 +69,151 @@ const static int barrier_algo_tbl[PPN_LEVEL_NUMS][NODE_LEVEL_NUMS] = {
 };
 
 const static int bcast_algo_tbl[SIZE_LEVEL_NUMS][PPN_LEVEL_NUMS][NODE_LEVEL_NUMS] = {
-    {
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 4, 3, 3, 3}, /* PPN_LEVEL_8 */
+    { /* SIZE_LEVEL_4B */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 3, 3, 3, 3}, /* PPN_LEVEL_8 */
         {4, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
         {3, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_64 */
-        {3, 3, 4, 3, 3}, /* PPN_LEVEL_LG */
+        {3, 4, 3, 3, 3}, /* PPN_LEVEL_64 */
+        {4, 3, 4, 3, 3}, /* PPN_LEVEL_LG */
     }, { /* SIZE_LEVEL_8B*/
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 4, 4, 3, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 3, 4, 3, 3}, /* PPN_LEVEL_8 */
         {4, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
         {3, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
-        {3, 3, 3, 4, 3}, /* PPN_LEVEL_64 */
-        {3, 3, 4, 3, 3}, /* PPN_LEVEL_LG */
+        {3, 4, 3, 4, 3}, /* PPN_LEVEL_64 */
+        {4, 4, 4, 3, 3}, /* PPN_LEVEL_LG */
     }, { /* SIZE_LEVEL_16B*/
-        {3, 3, 4, 3, 3}, /* PPN_LEVEL_4 */
-        {3, 4, 3, 3, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 4, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 3, 3, 3, 3}, /* PPN_LEVEL_8 */
         {4, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
         {3, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
-        {3, 3, 3, 4, 3}, /* PPN_LEVEL_64 */
-        {3, 3, 4, 3, 3}, /* PPN_LEVEL_LG */
+        {3, 4, 3, 4, 3}, /* PPN_LEVEL_64 */
+        {4, 4, 4, 3, 3}, /* PPN_LEVEL_LG */
     }, {/* SIZE_LEVEL_32B*/
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 4, 3, 3, 3}, /* PPN_LEVEL_8 */
-        {3, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
-        {3, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
-        {3, 3, 3, 4, 3}, /* PPN_LEVEL_64 */
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_LG */
-    }, { /* SIZE_LEVEL_64B*/
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 3, 3, 3, 3}, /* PPN_LEVEL_8 */
-        {4, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
-        {3, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
-        {3, 3, 3, 4, 3}, /* PPN_LEVEL_64 */
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_LG */
-    }, { /* SIZE_LEVEL_128B*/
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {3, 4, 3, 3, 3}, /* PPN_LEVEL_8 */
-        {3, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
-        {3, 3, 3, 4, 3}, /* PPN_LEVEL_32 */
-        {3, 3, 3, 4, 3}, /* PPN_LEVEL_64 */
-        {3, 3, 3, 4, 3}, /* PPN_LEVEL_LG */
-    }, {/* SIZE_LEVEL_256B*/
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 3, 3, 3, 3}, /* PPN_LEVEL_8 */
-        {3, 4, 4, 4, 3}, /* PPN_LEVEL_16 */
-        {3, 3, 3, 4, 3}, /* PPN_LEVEL_32 */
-        {3, 3, 4, 4, 3}, /* PPN_LEVEL_64 */
-        {3, 3, 4, 3, 3}, /* PPN_LEVEL_LG */
-    }, { /* SIZE_LEVEL_512B*/
-        {4, 3, 4, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 3, 3, 3, 3}, /* PPN_LEVEL_8 */
-        {3, 3, 4, 4, 4}, /* PPN_LEVEL_16 */
-        {4, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
-        {3, 3, 3, 4, 3}, /* PPN_LEVEL_64 */
-        {3, 3, 4, 4, 3}, /* PPN_LEVEL_LG */
-    }, { /* SIZE_LEVEL_1KB*/
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
         {3, 3, 3, 3, 3}, /* PPN_LEVEL_8 */
         {4, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
+        {3, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
+        {3, 4, 3, 4, 3}, /* PPN_LEVEL_64 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_64B*/
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 3, 3, 3, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
+        {3, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
+        {3, 4, 3, 4, 3}, /* PPN_LEVEL_64 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_128B*/
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
+        {3, 3, 3, 4, 3}, /* PPN_LEVEL_32 */
+        {4, 4, 3, 4, 3}, /* PPN_LEVEL_64 */
+        {4, 4, 3, 4, 3}, /* PPN_LEVEL_LG */
+    }, {/* SIZE_LEVEL_256B*/
+        {4, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 4, 4, 3}, /* PPN_LEVEL_16 */
+        {3, 3, 3, 4, 3}, /* PPN_LEVEL_32 */
+        {4, 4, 4, 4, 3}, /* PPN_LEVEL_64 */
+        {4, 4, 4, 3, 3}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_512B*/
+        {4, 3, 4, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 4, 4, 4}, /* PPN_LEVEL_16 */
+        {3, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
+        {3, 4, 3, 4, 3}, /* PPN_LEVEL_64 */
+        {4, 4, 4, 4, 3}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_1KB*/
+        {4, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
         {3, 3, 3, 4, 3}, /* PPN_LEVEL_32 */
         {3, 3, 4, 4, 3}, /* PPN_LEVEL_64 */
-        {3, 3, 4, 3, 3}, /* PPN_LEVEL_LG */
+        {4, 4, 4, 3, 3}, /* PPN_LEVEL_LG */
     }, {/* SIZE_LEVEL_2KB*/
-        {4, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 3, 3, 4, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 4, 3}, /* PPN_LEVEL_8 */
         {4, 4, 4, 3, 4}, /* PPN_LEVEL_16 */
-        {4, 3, 4, 4, 4}, /* PPN_LEVEL_32 */
-        {3, 4, 3, 4, 3}, /* PPN_LEVEL_64 */
-        {3, 4, 4, 4, 3}, /* PPN_LEVEL_LG */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_32 */
+        {3, 3, 3, 4, 3}, /* PPN_LEVEL_64 */
+        {4, 4, 4, 4, 3}, /* PPN_LEVEL_LG */
     }, { /* SIZE_LEVEL_4KB*/
-        {3, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
         {4, 4, 4, 4, 3}, /* PPN_LEVEL_8 */
         {4, 4, 4, 3, 3}, /* PPN_LEVEL_16 */
-        {3, 4, 4, 4, 3}, /* PPN_LEVEL_32 */
-        {4, 4, 4, 4, 4}, /* PPN_LEVEL_64 */
+        {3, 3, 4, 4, 3}, /* PPN_LEVEL_32 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_64 */
         {4, 4, 4, 4, 4}, /* PPN_LEVEL_LG */
-    }, { /* SIZE_LEVEL_8K*/
-        {4, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 3, 3, 4, 3}, /* PPN_LEVEL_8 */
+    }, { /* SIZE_LEVEL_8KB*/
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 4, 3}, /* PPN_LEVEL_8 */
         {4, 4, 4, 4, 4}, /* PPN_LEVEL_16 */
-        {4, 4, 4, 4, 4}, /* PPN_LEVEL_32 */
-        {4, 4, 4, 4, 4}, /* PPN_LEVEL_64 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_32 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_64 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_16KB*/
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 4, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 4, 4, 4}, /* PPN_LEVEL_16 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_32 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_64 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_32KB*/
+        {4, 4, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 4, 3, 4, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 4, 4, 4}, /* PPN_LEVEL_16 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_32 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_64 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_64KB*/
+        {2, 2, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 2, 3, 4, 3}, /* PPN_LEVEL_8 */
+        {4, 4, 4, 4, 4}, /* PPN_LEVEL_16 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_32 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_64 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_128KB*/
+        {2, 2, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 2, 3, 4, 3}, /* PPN_LEVEL_8 */
+        {4, 2, 4, 4, 4}, /* PPN_LEVEL_16 */
+        {3, 2, 4, 4, 4}, /* PPN_LEVEL_32 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_64 */
+        {3, 3, 4, 4, 4}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_256KB*/
+        {2, 2, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 2, 3, 4, 3}, /* PPN_LEVEL_8 */
+        {4, 2, 4, 4, 4}, /* PPN_LEVEL_16 */
+        {3, 2, 4, 4, 4}, /* PPN_LEVEL_32 */
+        {3, 2, 4, 4, 4}, /* PPN_LEVEL_64 */
+        {3, 2, 4, 4, 4}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_512KB*/
+        {2, 2, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 2, 3, 4, 3}, /* PPN_LEVEL_8 */
+        {4, 2, 4, 4, 4}, /* PPN_LEVEL_16 */
+        {3, 2, 4, 4, 4}, /* PPN_LEVEL_32 */
+        {3, 2, 4, 4, 4}, /* PPN_LEVEL_64 */
         {4, 4, 4, 4, 4}, /* PPN_LEVEL_LG */
-    }, { /* SIZE_LEVEL_1M*/
-        {4, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 3, 3, 4, 3}, /* PPN_LEVEL_8 */
-        {4, 4, 4, 4, 4}, /* PPN_LEVEL_16 */
-        {4, 4, 4, 4, 4}, /* PPN_LEVEL_32 */
+    }, { /* SIZE_LEVEL_1MB*/
+        {2, 2, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 2, 3, 4, 3}, /* PPN_LEVEL_8 */
+        {4, 2, 4, 4, 4}, /* PPN_LEVEL_16 */
+        {3, 2, 4, 4, 4}, /* PPN_LEVEL_32 */
         {4, 4, 4, 4, 4}, /* PPN_LEVEL_64 */
         {4, 4, 4, 4, 4}, /* PPN_LEVEL_LG */
     }, {/* SIZE_LEVEL_LG*/
-        {4, 3, 3, 3, 3}, /* PPN_LEVEL_4 */
-        {4, 3, 3, 4, 3}, /* PPN_LEVEL_8 */
-        {4, 4, 4, 4, 4}, /* PPN_LEVEL_16 */
-        {4, 4, 4, 4, 4}, /* PPN_LEVEL_32 */
+        {2, 2, 3, 3, 3}, /* PPN_LEVEL_4 */
+        {4, 2, 3, 4, 3}, /* PPN_LEVEL_8 */
+        {4, 2, 4, 4, 4}, /* PPN_LEVEL_16 */
+        {3, 2, 4, 4, 4}, /* PPN_LEVEL_32 */
         {4, 4, 4, 4, 4}, /* PPN_LEVEL_64 */
         {4, 4, 4, 4, 4}, /* PPN_LEVEL_LG */
     }
 };
 
 const static int allreduce_algo_tbl[SIZE_LEVEL_NUMS][PPN_LEVEL_NUMS][NODE_LEVEL_NUMS] = {
-    {
+    { /* SIZE_LEVEL_4B*/
         {11, 8, 8, 8, 7}, /* PPN_LEVEL_4 */
         {11, 11, 8, 8, 7}, /* PPN_LEVEL_8 */
         {11, 11, 11, 8, 7}, /* PPN_LEVEL_16 */
@@ -209,15 +257,15 @@ const static int allreduce_algo_tbl[SIZE_LEVEL_NUMS][PPN_LEVEL_NUMS][NODE_LEVEL_
         {11, 11, 11, 11, 7}, /* PPN_LEVEL_LG */
     }, { /* SIZE_LEVEL_256B*/
         {14, 13, 13, 13, 13}, /* PPN_LEVEL_4 */
-        {11, 11, 13, 13, 13}, /* PPN_LEVEL_8 */
-        {11, 11, 11, 14, 14}, /* PPN_LEVEL_16 */
-        {11, 11, 11, 11, 7}, /* PPN_LEVEL_32 */
+        {13, 13, 13, 13, 13}, /* PPN_LEVEL_8 */
+        {14, 14, 11, 14, 14}, /* PPN_LEVEL_16 */
+        {14, 11, 11, 11, 7}, /* PPN_LEVEL_32 */
         {11, 11, 11, 8, 7}, /* PPN_LEVEL_64 */
         {11, 11, 11, 7, 7}, /* PPN_LEVEL_LG */
     }, { /* SIZE_LEVEL_512B*/
         {13, 13, 13, 13, 13}, /* PPN_LEVEL_4 */
         {13, 13, 13, 13, 13}, /* PPN_LEVEL_8 */
-        {14, 14, 11, 13, 13}, /* PPN_LEVEL_16 */
+        {13, 13, 11, 13, 13}, /* PPN_LEVEL_16 */
         {14, 11, 14, 14, 14}, /* PPN_LEVEL_32 */
         {11, 11, 11, 8, 7}, /* PPN_LEVEL_64 */
         {11, 11, 7, 8, 7}, /* PPN_LEVEL_LG */
@@ -242,20 +290,62 @@ const static int allreduce_algo_tbl[SIZE_LEVEL_NUMS][PPN_LEVEL_NUMS][NODE_LEVEL_
         {13, 13, 13, 13, 13}, /* PPN_LEVEL_32 */
         {14, 14, 13, 14, 14}, /* PPN_LEVEL_64 */
         {13, 13, 13, 13, 7}, /* PPN_LEVEL_LG */
-    }, { /* SIZE_LEVEL_8K*/
+    }, { /* SIZE_LEVEL_8KB*/
         {13, 13, 13, 13, 12}, /* PPN_LEVEL_4 */
         {13, 13, 13, 12, 12}, /* PPN_LEVEL_8 */
         {13, 12, 12, 12, 12}, /* PPN_LEVEL_16 */
         {12, 12, 12, 12, 12}, /* PPN_LEVEL_32 */
         {13, 13, 13, 13, 13}, /* PPN_LEVEL_64 */
-        {12, 12, 5, 5, 6}, /* PPN_LEVEL_LG */
-    }, { /* SIZE_LEVEL_1M*/
+        {14, 2, 5, 5, 6}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_16KB*/
         {13, 13, 13, 13, 12}, /* PPN_LEVEL_4 */
         {13, 13, 13, 12, 12}, /* PPN_LEVEL_8 */
         {13, 12, 12, 12, 12}, /* PPN_LEVEL_16 */
-        {12, 12, 12, 12, 12}, /* PPN_LEVEL_32 */
+        {13, 12, 12, 12, 12}, /* PPN_LEVEL_32 */
+        {13, 12, 13, 13, 13}, /* PPN_LEVEL_64 */
+        {13, 13, 5, 5, 6}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_32KB*/
+        {12, 12, 13, 13, 12}, /* PPN_LEVEL_4 */
+        {13, 13, 13, 12, 12}, /* PPN_LEVEL_8 */
+        {13, 13, 12, 12, 12}, /* PPN_LEVEL_16 */
+        {13, 12, 12, 12, 12}, /* PPN_LEVEL_32 */
+        {13, 12, 13, 13, 13}, /* PPN_LEVEL_64 */
+        {13, 12, 5, 5, 6}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_64KB*/
+        {12, 12, 13, 13, 12}, /* PPN_LEVEL_4 */
+        {12, 12, 13, 12, 12}, /* PPN_LEVEL_8 */
+        {13, 13, 12, 12, 12}, /* PPN_LEVEL_16 */
+        {13, 13, 12, 12, 12}, /* PPN_LEVEL_32 */
+        {13, 12, 13, 13, 13}, /* PPN_LEVEL_64 */
+        {13, 12, 5, 5, 6}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_128KB*/
+        {4, 12, 13, 13, 12}, /* PPN_LEVEL_4 */
+        {12, 12, 13, 12, 12}, /* PPN_LEVEL_8 */
+        {13, 12, 12, 12, 12}, /* PPN_LEVEL_16 */
+        {13, 13, 12, 12, 12}, /* PPN_LEVEL_32 */
         {13, 13, 13, 13, 13}, /* PPN_LEVEL_64 */
-        {12, 12, 13, 13, 13}, /* PPN_LEVEL_LG */
+        {13, 12, 5, 5, 6}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_256KB*/
+        {4, 12, 13, 13, 12}, /* PPN_LEVEL_4 */
+        {12, 12, 13, 12, 12}, /* PPN_LEVEL_8 */
+        {12, 12, 12, 12, 12}, /* PPN_LEVEL_16 */
+        {13, 12, 12, 12, 12}, /* PPN_LEVEL_32 */
+        {13, 12, 13, 13, 13}, /* PPN_LEVEL_64 */
+        {13, 13, 5, 5, 6}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_512KB*/
+        {4, 4, 13, 13, 12}, /* PPN_LEVEL_4 */
+        {4, 12, 13, 12, 12}, /* PPN_LEVEL_8 */
+        {12, 12, 12, 12, 12}, /* PPN_LEVEL_16 */
+        {12, 12, 12, 12, 12}, /* PPN_LEVEL_32 */
+        {12, 12, 13, 13, 13}, /* PPN_LEVEL_64 */
+        {13, 13, 5, 5, 6}, /* PPN_LEVEL_LG */
+    }, { /* SIZE_LEVEL_1MB*/
+        {4, 4, 13, 13, 12}, /* PPN_LEVEL_4 */
+        {4, 4, 13, 12, 12}, /* PPN_LEVEL_8 */
+        {4, 4, 12, 12, 12}, /* PPN_LEVEL_16 */
+        {4, 12, 12, 12, 12}, /* PPN_LEVEL_32 */
+        {12, 12, 13, 13, 13}, /* PPN_LEVEL_64 */
+        {13, 13, 5, 5, 6}, /* PPN_LEVEL_LG */
     }, { /* SIZE_LEVEL_LG*/
         {4, 4, 4, 4, 4}, /* PPN_LEVEL_4 */
         {4, 4, 4, 4, 4}, /* PPN_LEVEL_8 */
@@ -282,7 +372,6 @@ static size_level_t ucg_builtin_get_size_level(const ucg_group_params_t *group_p
                                                 const ucg_collective_params_t *coll_params)
 {
     const int size_lev_small = 4;
-    const int size_lev_mid = 8192;
     const int size_lev_large = 1048576;
     int size;
     int dt_len;
@@ -297,9 +386,7 @@ static size_level_t ucg_builtin_get_size_level(const ucg_group_params_t *group_p
     if (size <= size_lev_small) {
         return SIZE_LEVEL_4B;
     }
-    if (size > size_lev_mid && size <= size_lev_large) {
-        return SIZE_LEVEL_1MB;
-    }
+
     if (size > size_lev_large) {
         return SIZE_LEVEL_LG;
     }
