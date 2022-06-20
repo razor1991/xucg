@@ -23,7 +23,7 @@
  * MAX_PHASES for tree plan      is 4
  * MAX_PHASES for recursive plan is 4 (namely it support 2^4 nodes !)
  */
-#define MAX_PHASES 15 /* till now, binomial tree can only support 2^MAX_PHASES process at most */
+#define MAX_PHASES 32 /* till now, binomial tree can only support 2^MAX_PHASES process at most */
 
 
 ucs_config_field_t ucg_builtin_binomial_tree_config_table[] = {

@@ -13,7 +13,7 @@
 #include <ucg/api/ucg_mpi.h>
 
 #define MAX_PEERS 100
-#define MAX_PHASES 16
+#define MAX_PHASES 32
 #define NUM_TWO 2
 #define FACTOR 2
 
