@@ -11,7 +11,7 @@
 #include "builtin_plan.h"
 
 #define MAX_PEERS (100)
-#define MAX_PHASES (16)
+#define MAX_PHASES (32)
 
 ucs_config_field_t ucg_builtin_trees_config_table[] = {
     {"INTER_TREE_TYPE", "1", "inter-node tree type. (0: binomial tree, 1: k-nomial tree)\n",
