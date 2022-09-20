@@ -1,6 +1,7 @@
 /*
  *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
+
 #ifndef UCG_PROFILE_H_
 #define UCG_PROFILE_H_
 

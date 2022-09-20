@@ -1,6 +1,7 @@
 /*
  *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
+
 #ifndef UCG_PARSER_H_
 #define UCG_PARSER_H_
 
