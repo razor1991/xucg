@@ -150,4 +150,5 @@ void ucg_topo_cleanup(ucg_topo_t *topo);
  * @note Caller needs to check whether the group is enabled.
  */
 ucg_topo_group_t* ucg_topo_get_group(ucg_topo_t *topo, ucg_topo_group_type_t type);
+
 #endif

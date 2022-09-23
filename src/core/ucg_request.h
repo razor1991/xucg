@@ -61,7 +61,7 @@ typedef struct ucg_coll_gatherv_args {
     ucg_dt_t *sendtype;
     void *recvbuf;
     const int32_t *recvcounts;
-    const int32_t *rdispls;
+    const int32_t *displs;
     ucg_dt_t *recvtype;
     ucg_rank_t root;
 } ucg_coll_gatherv_args_t;
@@ -69,7 +69,7 @@ typedef struct ucg_coll_gatherv_args {
 typedef struct ucg_coll_scatterv_args {
     const void *sendbuf;
     const int32_t *sendcounts;
-    const int32_t *sdispls;
+    const int32_t *displs;
     ucg_dt_t *sendtype;
     void *recvbuf;
     int32_t recvcount;
@@ -83,7 +83,7 @@ typedef struct ucg_coll_allgatherv_args {
     ucg_dt_t *sendtype;
     void *recvbuf;
     const int32_t *recvcounts;
-    const int32_t *rdispls;
+    const int32_t *displs;
     ucg_dt_t *recvtype;
 } ucg_coll_allgatherv_args_t;
 
