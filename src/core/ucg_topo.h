@@ -44,11 +44,11 @@ typedef enum ucg_topo_group_type {
 } ucg_topo_group_type_t;
 
 typedef enum ucg_topo_group_state {
-    UCG_TOPO_STATE_NOT_INIT, /** Not initialize. */
-    UCG_TOPO_STATE_ERROR, /** Error occurred during group creation. */
-    UCG_TOPO_STATE_ENABLE, /** I'm the member of the group. */
-    UCG_TOPO_STATE_DISABLE, /** I'm not the member of the group. */
-    UCG_TOPO_STATE_LAST
+    UCG_TOPO_GROUP_STATE_NOT_INIT, /** Not initialize. */
+    UCG_TOPO_GROUP_STATE_ERROR, /** Error occurred during group creation. */
+    UCG_TOPO_GROUP_STATE_ENABLE, /** I'm the member of the group. */
+    UCG_TOPO_GROUP_STATE_DISABLE, /** I'm not the member of the group. */
+    UCG_TOPO_GROUP_STATE_LAST
 } ucg_topo_group_state_t;
 
 typedef struct ucg_topo_group {
