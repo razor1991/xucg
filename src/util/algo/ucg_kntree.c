@@ -1,10 +1,10 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_kntree.h"
-#include "util/ucg_hepler.h"
-#include "util/ucg_malloc.h"
+#include "util/ucg_helper.h"
+#include "util/ucg_math.h"
 #include <stdio.h>
 
 static void ucg_algo_kntree_iter_update_kntree_leftmost(ucg_algo_kntree_iter_t *iter)
@@ -79,14 +79,14 @@ void ucg_algo_kntree_iter_init(ucg_algo_kntree_iter_t *iter, int size, int degre
     iter->parent = UCG_INVALID_RANK;
     int subsize = 1; /* At first, I'm the only member of the sub-kntree and the root. */
     while (subsize < size) {
-        /* I'm the root of this sub-kntree, find my parent in the bigger sub-kntree */
+        /* I'm the root of this sub-kntree, find my parent in the bigger sub-kntree. */
         int next_subsize = subsize * degree;
         if (v_myrank % next_subsize != 0) {
             iter->parent = v_myrank / next_subsize * next_subsize;
             iter->parent = (iter->parent + root) %size;
             break;
         }
-        /* I'm the root of the bigger sub-kntree, keep looking */
+        /* I'm the root of the bigger sub-kntree, keep looking. */
         subsize = next_subsize;
     }
     iter->max_subsize = subsize;

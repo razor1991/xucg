@@ -8,8 +8,8 @@
 /* Macros related to version information. */
 #define UCG_VERSION(_major, _minor, _patch)  \
     (((_major) << UCG_VERSION_MAJOR_SHIFT) | \
-     ((_major) << UCG_VERSION_MINOR_SHIFT) | \
-     ((_major) << UCG_VERSION_PATCH_SHIFT))
+     ((_minor) << UCG_VERSION_MINOR_SHIFT) | \
+     ((_patch) << UCG_VERSION_PATCH_SHIFT))
 
 #define UCG_VERSION_MAJOR_SHIFT 10
 #define UCG_VERSION_MINOR_SHIFT 10

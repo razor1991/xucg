@@ -1,9 +1,9 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_rd.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 
 static inline void ucg_algo_rd_iter_update(ucg_algo_rd_iter_t *iter)
 {

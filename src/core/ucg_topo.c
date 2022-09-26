@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_topo.h"
@@ -7,7 +7,7 @@
 #include "ucg_group.h"
 
 #include "util/ucg_malloc.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 #include "util/ucg_array.h"
 #include "util/ucg_log.h"
 #include "util/ucg_math.h"
@@ -107,7 +107,7 @@ static ucg_status_t ucg_topo_group_aux_check_subnet_id(void **aux, const ucg_loc
 {
     UCG_UNUSED(aux);
 
-    if (!(location->field_mask & UCG_LOCATIONFIELD_SUBNET_ID)) {
+    if (!(location->field_mask & UCG_LOCATION_FIELD_SUBNET_ID)) {
         ucg_warn("Rank has no subnet id");
         return UCG_ERR_NOT_FOUND;
     }
@@ -127,7 +127,7 @@ static ucg_status_t ucg_topo_group_aux_check_node_id(void **aux, const ucg_locat
 {
     UCG_UNUSED(aux);
 
-    if (!(location->field_mask & UCG_LOCATIONFIELD_NODE_ID)) {
+    if (!(location->field_mask & UCG_LOCATION_FIELD_NODE_ID)) {
         ucg_warn("Rank has no node id");
         return UCG_ERR_NOT_FOUND;
     }
@@ -147,8 +147,8 @@ static ucg_status_t ucg_topo_group_aux_check_socket_id(void **aux, const ucg_loc
 {
     UCG_UNUSED(aux);
 
-    if (!(location->field_mask & UCG_LOCATIONFIELD_NODE_ID) ||
-        !(location->field_mask & UCG_LOCATIONFIELD_SOCKET_ID)) {
+    if (!(location->field_mask & UCG_LOCATION_FIELD_NODE_ID) ||
+        !(location->field_mask & UCG_LOCATION_FIELD_SOCKET_ID)) {
         ucg_warn("Rank has no socket id");
         return UCG_ERR_NOT_FOUND;
     }
@@ -171,7 +171,7 @@ static int32_t ucg_topo_group_aux_is_leader(void **aux, int32_t id)
     int32_t *criterion = NULL;
     UCG_ARRAY_FOR_EACH(criterion, filter) {
         if (id == *criterion) {
-            // Leader exists, this id cannot be a leader
+            // Leader exists, this id cannot be a leader.
             return 0;
         }
     }
@@ -278,7 +278,7 @@ static ucg_topo_group_aux_t ucg_topo_group_aid[] = {
     },
     [UCG_TOPO_GROUP_TYPE_NODE_LEADER] = {
         .init = ucg_topo_group_aux_init_leader_filter,
-        .cleanup = ucg_topo_group_aux_cleanup_empty,
+        .cleanup = ucg_topo_group_aux_cleanup_leader_filter,
         .check = ucg_topo_group_aux_check_node_id,
         .is_member = ucg_topo_group_aux_is_node_leader,
         .add_member = ucg_topo_group_aux_add_node_leader,
@@ -292,7 +292,7 @@ static ucg_topo_group_aux_t ucg_topo_group_aid[] = {
     },
     [UCG_TOPO_GROUP_TYPE_SOCKET_LEADER] = {
         .init = ucg_topo_group_aux_init_leader_filter,
-        .cleanup = ucg_topo_group_aux_cleanup_empty,
+        .cleanup = ucg_topo_group_aux_cleanup_leader_filter,
         .check = ucg_topo_group_aux_check_socket_id,
         .is_member = ucg_topo_group_aux_is_socket_leader,
         .add_member = ucg_topo_group_aux_add_socket_leader,
@@ -324,7 +324,7 @@ static ucg_status_t ucg_topo_create_group(ucg_topo_t *topo,
         goto err_free_ranks;
     }
 
-    ucg_topo_group_t *group = &topo->gorups[type];
+    ucg_topo_group_t *group = &topo->groups[type];
     ucg_assert(group->state == UCG_TOPO_GROUP_STATE_NOT_INIT);
 
     ucg_rank_t vrank = 0;
@@ -353,7 +353,7 @@ static ucg_status_t ucg_topo_create_group(ucg_topo_t *topo,
         }
         // generate vgroup rank to group rank mapping table
         if (ucg_unlikely(vrank == size_ranks)) {
-            status = UCG_ARRAYX_EXTEND(ucg_rank_t, &rank, &size_ranks, 128);
+            status = UCG_ARRAYX_EXTEND(ucg_rank_t, &ranks, &size_ranks, 128);
             if (status != UCG_OK) {
                 ucg_error("Failed to extend ranks");
                 goto err_cleanup_aux;
@@ -367,7 +367,7 @@ static ucg_status_t ucg_topo_create_group(ucg_topo_t *topo,
     }
 
     group->super.size = vrank;
-    if (group->super.myrank == UCG_INVALOD_RANK ||
+    if (group->super.myrank == UCG_INVALID_RANK ||
         vrank <= 1) { // Group is meaningless when it has one or less member
         group->state = UCG_TOPO_GROUP_STATE_DISABLE;
         ucg_free(ranks);
@@ -442,18 +442,16 @@ static ucg_status_t ucg_topo_create_node_leader_group(ucg_topo_t *topo)
 
 static ucg_status_t ucg_topo_create_socket_group(ucg_topo_t *topo)
 {
-    ucg_rank_map_t rank_map;
-    rank_map.type = UCG_RANK_MAP_TYPE_FULL;
-    rank_map.size = topo->rank_map.size;
-    return ucg_topo_create_group(topo, &rank_map, UCG_TOPO_GROUP_TYPE_SOCKET);
+    ucg_topo_group_t *node_group = &topo->groups[UCG_TOPO_GROUP_TYPE_NODE];
+    ucg_assert(node_group->state == UCG_TOPO_GROUP_STATE_ENABLE);
+    return ucg_topo_create_group(topo, &node_group->super.rank_map, UCG_TOPO_GROUP_TYPE_SOCKET);
 }
 
 static ucg_status_t ucg_topo_create_socket_leader_group(ucg_topo_t *topo)
 {
-    ucg_rank_map_t rank_map;
-    rank_map.type = UCG_RANK_MAP_TYPE_FULL;
-    rank_map.size = topo->rank_map.size;
-    return ucg_topo_create_group(topo, &rank_map, UCG_TOPO_GROUP_TYPE_SOCKET_LEADER);
+    ucg_topo_group_t *node_group = &topo->groups[UCG_TOPO_GROUP_TYPE_NODE];
+    ucg_assert(node_group->state == UCG_TOPO_GROUP_STATE_ENABLE);
+    return ucg_topo_create_group(topo, &node_group->super.rank_map, UCG_TOPO_GROUP_TYPE_SOCKET_LEADER);
 }
 
 static ucg_status_t ucg_topo_init_detail(ucg_topo_t *topo)
@@ -471,7 +469,7 @@ static ucg_status_t ucg_topo_init_detail(ucg_topo_t *topo)
     int32_t nsocket = 0;
     ucg_location_t location;
     for (int i = 0; i < group_size; ++i) {
-        status = ucg_group_get_location(group, i, &locations);
+        status = ucg_group_get_location(group, i, &location);
         if (status != UCG_OK) {
             goto err_free_locations;
         }
@@ -578,7 +576,7 @@ static ucg_status_t ucg_topo_calc_ppx(ucg_topo_t *topo)
     return UCG_OK;
 }
 
-ucg_status_t ucg_topo_init(const ucg_topo_params_t *params. ucg_topo_t **topo)
+ucg_status_t ucg_topo_init(const ucg_topo_params_t *params, ucg_topo_t **topo)
 {
     UCG_CHECK_NULL_INVALID(params, topo);
 
@@ -592,7 +590,7 @@ ucg_status_t ucg_topo_init(const ucg_topo_params_t *params. ucg_topo_t **topo)
     for (int i = 0; i < UCG_TOPO_GROUP_TYPE_LAST; ++i) {
         new_topo->groups[i].super.myrank = UCG_INVALID_RANK;
         new_topo->groups[i].super.group = group;
-        new_topo->groups[i].super = UCG_TOPO_GROUP_STATE_NOT_INIT;
+        new_topo->groups[i].state = UCG_TOPO_GROUP_STATE_NOT_INIT;
     }
     new_topo->group = group;
     new_topo->myrank = params->myrank;
@@ -676,7 +674,7 @@ ucg_topo_group_t* ucg_topo_get_group(ucg_topo_t *topo, ucg_topo_group_type_t typ
             }
 
             /* Directly return to avoid program interruption caused by assertions taking effect. */
-            if (topo->groups[UCG_TOPO_GROUP_TYPE_NODE].state == UCG_TOPO_GROUP_STATE_DISABLE {
+            if (topo->groups[UCG_TOPO_GROUP_TYPE_NODE].state == UCG_TOPO_GROUP_STATE_DISABLE) {
                 group->state = UCG_TOPO_GROUP_STATE_DISABLE;
                 return group;
             }
@@ -686,6 +684,7 @@ ucg_topo_group_t* ucg_topo_get_group(ucg_topo_t *topo, ucg_topo_group_type_t typ
             } else {
                 status = ucg_topo_create_socket_leader_group(topo);
             }
+
             break;
         default:
             status = UCG_ERR_NOT_FOUND;

@@ -8,6 +8,7 @@ Group-based Collective Operations for UCX
 > example
 > - build debug version: `cmake -DCMAKE_INSTALL_PREFIX=${install_path} -DCMAKE_BUILD_TYPE=Debug -DUCG_BUILD_WITH_UCX=${ucx_path} ..`
 > - build planc hccl: `cmake -DCMAKE_INSTALL_PREFIX=${install_path} -DCMAKE_BUILD_TYPE=Debug -DUCG_BUILD_WITH_UCX=${ucx_path} -DUCG_BUILD_WITH_HCCL=${hccl_path} -DUCG_BUILD_PLANC_HCCL=ON ..`
+4. `make -j && make install`
 
 # UCG Build Options
 - UCG_BUILD_TOOLS: Build UCG tools, default ON
@@ -15,7 +16,7 @@ Group-based Collective Operations for UCX
 - UCG_BUILD_WITH_UCX: Specify the UCX install path
 - UCG_BUILD_WITH_HCCL: Specify the HCCL install path
 
-- UCG_ENABLE_PEOFILE: Enable profiling, default OFF
+- UCG_ENABLE_PROFILE: Enable profiling, default OFF
 - UCG_ENABLE_GCOV: Enable code coverage, default OFF
 - UCG_ENABLE_CHECK_PARAMS: Enable checking parameters, default ON
 - UCG_ENABLE_MT: Enable thread-safe support, default OFF
@@ -27,4 +28,4 @@ Group-based Collective Operations for UCX
 - UCG_BUILD_PLANC_HCCL: Build the plan component which is based on HCCL, default OFF
 
 # UCG PlanM Usage
-If you want to load a closed-source module, placing the closed-source library to `${ucg_install_path}/lib/planc`
+If you want to load a closed-source module, placing the closed-source library to `${ucg_install_path}/lib/planc`.

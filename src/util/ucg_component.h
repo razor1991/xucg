@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_COMPONENT_H_
@@ -13,8 +13,8 @@
  * @brief Dynamically loadable component
  */
 typedef struct {
-    const char *name; /* Set by component implementer. */
-    void handle; /* Set by component loader*/
+    const char *name; /**< Set by component implementer. */
+    void *handle; /**< Set by component loader. */
 } ucg_component_t;
 
 /**
@@ -26,7 +26,7 @@ typedef struct {
 } ucg_components_t;
 
 /**
- * @brief Load conponents.
+ * @brief Load components.
  *
  * It loads the library matches @b pattern in the @b path, and get the component
  * object pointer from the library. The symbol name of component object should be

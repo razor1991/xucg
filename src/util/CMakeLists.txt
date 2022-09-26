@@ -1,9 +1,9 @@
 #
-# Copyright (C) Huawei Technologies Co., Ltd. 2020-2022. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
 #
 
 # Get cache line size
-execute_process(COMMAND cat /sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size)
+execute_process(COMMAND cat /sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size
                 TIMEOUT 3
                 RESULT_VARIABLE result_var
                 OUTPUT_VARIABLE output_var
@@ -20,10 +20,10 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/ucg_cpu.h.in"
 # Find all source files
 file(GLOB_RECURSE SRCS ./*.c)
 
-set(UCG_LINK_FLAGS "-lucs ${UCG_LINK_FLAGS}" CACHE INTERNAL "UCG link options")
+set(UCG_LINKER_FLAGS "-lucs ${UCG_LINKER_FLAGS}" CACHE INTERNAL "UCG link options")
 if (IS_DIRECTORY ${UCG_BUILD_WITH_UCX})
-    set(UCG_LINK_FLAGS
-        "-L${UCG_BUILD_WITH_UCX}/lib ${UCG_LINK_FLAGS}"
+    set(UCG_LINKER_FLAGS
+        "-L${UCG_BUILD_WITH_UCX}/lib ${UCG_LINKER_FLAGS}"
         CACHE INTERNAL "UCG link options")
     # Makes it easier to run at build time
     set(CMAKE_BUILD_RPATH "${UCG_BUILD_WITH_UCX}/lib" PARENT_SCOPE)

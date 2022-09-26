@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_ALGO_KNTREE_H_
@@ -39,7 +39,7 @@ typedef struct ucg_algo_kntree_iter {
  * Generally, left-most applies to fan-out scenarios, and right-most applies to
  * fan-in scenarios.
  */
-void ucg_algo_kntree_iter_init(ucg_algo_kntree_iter_t *iter, int size, int degree.
+void ucg_algo_kntree_iter_init(ucg_algo_kntree_iter_t *iter, int size, int degree,
                                int root, ucg_rank_t myrank, uint8_t leftmost);
 
 /**
@@ -58,7 +58,7 @@ static inline ucg_rank_t ucg_algo_kntree_iter_root_value(ucg_algo_kntree_iter_t 
 /**
  * @brief Get the current parent value of iterator.
  * @retval Current parent rank.
- * @retval UCG_INVALID_RANK if no parent rank.
+ * @retval UCG_INVALID_RANK no parent rank.
  */
 static inline ucg_rank_t ucg_algo_kntree_iter_parent_value(ucg_algo_kntree_iter_t *iter)
 {

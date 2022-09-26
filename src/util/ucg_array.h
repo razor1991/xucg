@@ -1,11 +1,12 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
+
 #ifndef UCG_ARRAY_H_
 #define UCG_ARRAY_H_
 
 #define UCG_ARRAY_TYPE(_type) ucg_array_##_type##_t
-/* Declearing an array structure of a specific type and its routines. */
+/* Declaring an array structure of a specific type and its routines. */
 #define UCG_ARRAY_DECLARE(_type) \
     typedef struct { \
         int32_t length; \
@@ -15,7 +16,7 @@
     \
     static inline ucg_status_t ucg_array_##_type##_init(UCG_ARRAY_TYPE(_type) **array, int32_t capacity) \
     { \
-        int32_t size = sizeof(UCG_ARRAY_TYPE(_type)) + capacity + sizeof(_type); \
+        int32_t size = sizeof(UCG_ARRAY_TYPE(_type)) + capacity * sizeof(_type); \
         UCG_ARRAY_TYPE(_type) *new_array = ucg_malloc(size, "ucg array init"); \
         if (new_array == NULL) { \
             return UCG_ERR_NO_MEMORY; \
@@ -101,12 +102,12 @@
 #define UCG_ARRAY_CAPACITY(_array) ((_array)->capacity)
 
 /**
- * @brief Return pointer of the array lelment.
+ * @brief Return pointer to the array element.
  */
 #define UCG_ARRAY_ELEM(_array, _idx) &((_array)->buffer[_idx])
 
 /**
- * @brief Whether the array if full.
+ * @brief Whether the array is full.
  */
 #define UCG_ARRAY_IS_FULL(_array) ((_array)->length == (_array)->capacity)
 
@@ -116,7 +117,7 @@
 #define UCG_ARRAY_APPEND(_array, _elem) ((_array)->buffer[(_array)->length++] = (_elem))
 
 /**
- * @brief Return pointer of the first element.
+ * @brief Return pointer to the first element.
  */
 #define UCG_ARRAY_BEGIN(_array) &((_array)->buffer[0])
 
@@ -152,7 +153,7 @@
  *
  * @param [in]    _type         Type of array
  * @param [in]    _array        Point to begin address of array
- * @param [inout] _capacity     The caller must initialize it to cantain the size
+ * @param [inout] _capacity     The caller must initialize it to contain the size
  *                              of the array; on return it will contain the actual
  *                              size of the array.
  * @param [in]    _grow         Extend size
@@ -161,6 +162,6 @@
  * @note the extended array can be freed by ucg_free()
  */
 #define UCG_ARRAYX_EXTEND(_type, _array, _capacity, _grow) \
-    ucg_arrayx_##_type##_extend(_array, , _grow)
+    ucg_arrayx_##_type##_extend(_array, _capacity, _grow)
 
 #endif

@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_context.h"
@@ -8,10 +8,11 @@
 #include "ucg_plan.h"
 
 #include "planc/ucg_planc.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 #include "util/ucg_malloc.h"
 #include "util/ucg_parser.h"
 #include "util/ucg_cpu.h"
+
 
 #define UCG_CONTEXT_COPY_REQUIRED_FIELD(_field, _copy, _dst, _src, _err_label) \
     UCG_COPY_REQUIRED_FIELD(UCG_TOKENPASTE(UCG_PARAMS_FIELD_, _field), _copy, _dst, _src, _err_label)
@@ -28,8 +29,8 @@ static ucg_config_field_t ucg_context_config_table[] = {
      ucg_offsetof(ucg_config_t, planc), UCG_CONFIG_TYPE_STRING_ARRAY},
 
     {"USE_MT_MUTEX", "n",
-     "Use mutex for multi-threading support in UCG\n"
-     " - y      : use mutex for multi-threading support\n"
+     "Use mutex for multithreading support in UCG\n"
+     " - y      : use mutex for multi-thread support\n"
      " - n      : use spinlock by default",
      ucg_offsetof(ucg_config_t, use_mt_mutex), UCG_CONFIG_TYPE_BOOL},
 
@@ -38,7 +39,7 @@ static ucg_config_field_t ucg_context_config_table[] = {
 UCG_CONFIG_REGISTER_TABLE(ucg_context_config_table, "UCG context", NULL,
                           ucg_config_t, &ucg_config_global_list);
 
-static ucg_statue_t ucg_config_apply_env_prefix(ucg_config_t *config,
+static ucg_status_t ucg_config_apply_env_prefix(ucg_config_t *config,
                                                 const char *env_prefix)
 {
     if (env_prefix == NULL) {
@@ -64,7 +65,7 @@ static ucg_statue_t ucg_config_apply_env_prefix(ucg_config_t *config,
     return UCG_OK;
 }
 
-static void ucg_config_release_plac_cfg(ucg_config_t *config)
+static void ucg_config_release_planc_cfg(ucg_config_t *config)
 {
     ucg_planc_config_h *planc_cfg = config->planc_cfg;
     int count = config->num_planc_cfg;
@@ -83,7 +84,7 @@ static ucg_status_t ucg_config_read_planc_cfg(ucg_config_t *config,
     int count = ucg_planc_count();
     ucg_assert(count > 0);
     config->num_planc_cfg = 0;
-    config->planc_cfg = ucg_calloc(count, sizeof(ucg_planc_config_h), "ucg_planc cfg");
+    config->planc_cfg = ucg_calloc(count, sizeof(ucg_planc_config_h), "ucg planc cfg");
     if (config->planc_cfg == NULL) {
         return UCG_ERR_NO_MEMORY;
     }
@@ -93,7 +94,7 @@ static ucg_status_t ucg_config_read_planc_cfg(ucg_config_t *config,
         ucg_planc_t *planc = ucg_planc_get_by_idx(i);
         status = planc->config_read(env_prefix, filename, &config->planc_cfg[i]);
         if (status != UCG_OK) {
-            ucg_error("Filed to read configuration of planc %s", planc->super.name);
+            ucg_error("Failed to read configuration of planc %s", planc->super.name);
             goto err_release;
         }
         ++config->num_planc_cfg;
@@ -102,7 +103,7 @@ static ucg_status_t ucg_config_read_planc_cfg(ucg_config_t *config,
     return UCG_OK;
 
 err_release:
-    ucg_config_release_plac_cfg(config);
+    ucg_config_release_planc_cfg(config);
     return status;
 }
 
@@ -117,7 +118,7 @@ static ucg_status_t ucg_context_check_version(uint32_t major_version,
     if (api_major_version != major_version ||
         (api_major_version == major_version && api_minor_version < minor_version)) {
         ucg_error("UCG version is incompatible, required: %u.%u, actual: %u.%u.%u",
-                  api_major_version, minor_version,
+                  major_version, minor_version,
                   api_major_version, api_minor_version, api_patch_version);
         return UCG_ERR_INCOMPATIBLE;
     }
@@ -138,10 +139,10 @@ static ucg_status_t ucg_context_apply_params(ucg_context_t *context,
                                     err);
 
     UCG_CONTEXT_COPY_OPTIONAL_FIELD(THREAD_MODE, UCG_COPY_VALUE,
-                                    context->therad_mode, params->therad_mode,
+                                    context->thread_mode, params->thread_mode,
                                     UCG_THREAD_MODE_SINGLE, err);
 
-    if (context->therad_mode == UCG_THREAD_MODE_MULTI) {
+    if (context->thread_mode == UCG_THREAD_MODE_MULTI) {
 #ifndef UCG_ENABLE_MT
         ucg_error("UCG is built without multi-thread support.");
         goto err;
@@ -162,7 +163,7 @@ static int ucg_context_is_required_planc(ucg_planc_t *planc,
     for (int i = 0; i < count; ++i) {
         if (!strcmp(planc_name, required.names[i]) ||
             !strcmp(required.names[i], "all")) {
-            return i;
+            return 1;
         }
     }
     return 0;
@@ -226,7 +227,7 @@ err_free_resource:
 
 static void ucg_context_free_resource_mt(ucg_context_t *context)
 {
-    ucg_lock_destory(&context->mt_lock);
+    ucg_lock_destroy(&context->mt_lock);
     return;
 }
 
@@ -239,18 +240,18 @@ static ucg_status_t ucg_context_fill_resource_mt(ucg_context_t *context,
     }
 
     ucg_status_t status;
-    ucg_planc_context_attr attr = {
+    ucg_planc_context_attr_t attr = {
         .field_mask = UCG_PLANC_CONTEXT_ATTR_FIELD_THREAD_MODE,
     };
     int num_planc_rscs = context->num_planc_rscs;
     for (int i = 0; i < num_planc_rscs; ++i) {
         ucg_resource_planc_t*rsc = &context->planc_rscs[i];
         /* Some planc may not support the query of thread mode which indicates
-           that is a non-thread-safe planc, so set the inital thread mode. */
+           that is a non-thread-safe planc, so set the initial thread mode. */
         attr.thread_mode = UCG_THREAD_MODE_SINGLE;
         status = rsc->planc->context_query(rsc->ctx, &attr);
         if (status != UCG_OK || attr.thread_mode == UCG_THREAD_MODE_SINGLE) {
-            ucg_debug("There's a non-thread_safe planc, using context lock.");
+            ucg_debug("There's a non-thread-safe planc, using context lock.");
             lock_type = config->use_mt_mutex ? UCG_LOCK_TYPE_MUTEX : UCG_LOCK_TYPE_SPINLOCK;
             break;
         }
@@ -264,6 +265,7 @@ static void ucg_context_free_resource(ucg_context_t *context)
 {
     ucg_context_free_resource_mt(context);
     ucg_context_free_resource_planc(context);
+    return;
 }
 
 static ucg_status_t ucg_context_fill_resource(ucg_context_t *context,
@@ -334,7 +336,7 @@ static ucg_proc_info_t* ucg_context_get_local_proc_info(ucg_context_t *context)
             ucg_error("Failed to query planc address");
             goto err_free_proc;
         }
-        if (attr.add_len > 0) {
+        if (attr.addr_len > 0) {
             memcpy((uint8_t*)proc + addr_offset, attr.addr, attr.addr_len);
         }
         proc->addr_desc[i].len = attr.addr_len;
@@ -354,7 +356,7 @@ static ucg_status_t ucg_context_get_max_size(ucg_context_t *context,
                                              uint32_t size,
                                              uint32_t *max_size)
 {
-    ucg_oob_group_t *obb_group = &context->oob_group;
+    ucg_oob_group_t *oob_group = &context->oob_group;
     uint32_t oob_group_size = oob_group->size;
     uint32_t *size_array = ucg_malloc(sizeof(uint32_t) * oob_group_size,
                                       "size array");
@@ -365,8 +367,7 @@ static ucg_status_t ucg_context_get_max_size(ucg_context_t *context,
     ucg_status_t status = oob_group->allgather(&size, size_array,
                                                sizeof(uint32_t),
                                                oob_group->group);
-
-    if (status !- UCG_OK) {
+    if (status != UCG_OK) {
         ucg_error("Failed to allgather size");
         goto out;
     }
@@ -437,7 +438,7 @@ static void ucg_context_free_procs(ucg_context_t *context)
     return;
 }
 
-static ucg_status_t ucg_context_init_version(uint32_t major_verison,
+static ucg_status_t ucg_context_init_version(uint32_t major_version,
                                              uint32_t minor_version,
                                              const ucg_params_t *params,
                                              const ucg_config_h config,
@@ -446,7 +447,7 @@ static ucg_status_t ucg_context_init_version(uint32_t major_verison,
     UCG_CHECK_NULL_INVALID(params, config, context);
 
     ucg_status_t status;
-    status = ucg_context_check_version(major_verison, minor_version);
+    status = ucg_context_check_version(major_version, minor_version);
     if (status != UCG_OK) {
         return status;
     }
@@ -574,7 +575,7 @@ ucg_status_t ucg_config_read(const char *env_prefix, const char *filename,
     }
 
     status = ucg_config_parser_fill_opts(cfg, ucg_context_config_table,
-                                         cfg->env_prefix, NULL 0);
+                                         cfg->env_prefix, NULL, 0);
     if (status != UCG_OK) {
         goto err_free_env_prefix;
     }
@@ -623,9 +624,9 @@ ucg_status_t ucg_config_modify(ucg_config_h config, const char *name,
 
 void ucg_config_release(ucg_config_h config)
 {
-    UCG_CHECK_NULL_INVALID(config);
+    UCG_CHECK_NULL_VOID(config);
 
-    ucg_config_release_plac_cfg(config);
+    ucg_config_release_planc_cfg(config);
     ucg_config_parser_release_opts(config, ucg_context_config_table);
     ucg_free(config->env_prefix);
     ucg_free(config);

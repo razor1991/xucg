@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_TOPO_H_
@@ -22,7 +22,7 @@
 #define UCG_TOPO_PPX_UNBALANCED -1
 
 /**
- * @brief Get location
+ * @brief Get location.
  *
  * @param [in]  group       UCG group.
  * @param [in]  rank        Group rank.
@@ -34,11 +34,11 @@ typedef ucg_status_t (*ucg_topo_get_location_cb_t)(ucg_group_t *group,
 
 typedef enum ucg_topo_group_type {
     UCG_TOPO_GROUP_TYPE_NET, /**< Consist of all processes. */
-    UCG_TOPO_GROUP_TYPE_SUBNET, /**< Consist of all processes in same subnet. */
+    UCG_TOPO_GROUP_TYPE_SUBNET, /**< Consist of the processes in same subnet. */
     UCG_TOPO_GROUP_TYPE_SUBNET_LEADER, /**< Consist of the leader process of all subnet groups. */
-    UCG_TOPO_GROUP_TYPE_NODE, /**< Consist of all processes in same node. */
+    UCG_TOPO_GROUP_TYPE_NODE, /**< Consist of the processes in same node. */
     UCG_TOPO_GROUP_TYPE_NODE_LEADER, /**< Consist of the leader process of all node groups. */
-    UCG_TOPO_GROUP_TYPE_SOCKET, /**< Consist of all processes in same socket. */
+    UCG_TOPO_GROUP_TYPE_SOCKET, /**< Consist of the processes in same socket. */
     UCG_TOPO_GROUP_TYPE_SOCKET_LEADER, /**< Consist of the leader process of all socket groups. */
     UCG_TOPO_GROUP_TYPE_LAST
 } ucg_topo_group_type_t;
@@ -59,7 +59,7 @@ typedef struct ucg_topo_group {
 typedef struct ucg_topo_params {
     /** Original group of all topo groups. */
     ucg_group_t *group;
-    /** My rank in the group */
+    /** My rank in the group. */
     ucg_rank_t myrank;
     /** Convert group rank to context rank. */
     const ucg_rank_map_t *rank_map;
@@ -75,7 +75,7 @@ typedef struct ucg_topo_location {
 typedef struct ucg_topo_detail {
     int32_t nnode;
     int32_t nsocket;
-    /** The length of the locations array is determined by @ref ucg_group_t::size */
+    /* The length of the locations array is determined by @ref ucg_group_t::size */
     ucg_topo_location_t *locations;
 } ucg_topo_detail_t;
 

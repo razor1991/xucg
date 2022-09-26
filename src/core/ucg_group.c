@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_group.h"
@@ -8,7 +8,7 @@
 #include "ucg_plan.h"
 #include "ucg_topo.h"
 
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 #include "util/ucg_malloc.h"
 #include "util/ucg_log.h"
 #include "planc/ucg_planc.h"
@@ -41,8 +41,8 @@ static ucg_status_t ucg_group_apply_params(ucg_group_t *group,
     UCG_GROUP_COPY_REQUIRED_FIELD(MYRANK, UCG_COPY_VALUE,
                                   group->myrank, params->myrank,
                                   err);
-    UCG_GROUP_COPY_REQUIRED_FIELD(RANK_MAP, UCG_COPY_VALUE,
-                                  group->rank_map, params->rank_map,
+    UCG_GROUP_COPY_REQUIRED_FIELD(RANK_MAP, ucg_rank_map_copy,
+                                  &group->rank_map, &params->rank_map,
                                   err);
     if (group->size != group->rank_map.size) {
         ucg_error("rank map size(%u) isn't equal to group size(%u)",
@@ -66,13 +66,13 @@ err:
     return UCG_ERR_INVALID_PARAM;
 }
 
-static void ucg_group_destory_planc_group(ucg_group_t *group)
+static void ucg_group_destroy_planc_group(ucg_group_t *group)
 {
     int32_t num_planc_groups = group->num_planc_groups;
     ucg_resource_planc_t *planc_rscs = group->context->planc_rscs;
     for (int i = 0; i < num_planc_groups; ++i) {
         ucg_planc_t *planc = planc_rscs[i].planc;
-        planc->group_destory(group->planc_groups[i]);
+        planc->group_destroy(group->planc_groups[i]);
     }
     ucg_free(group->planc_groups);
     return;
@@ -98,15 +98,15 @@ static ucg_status_t ucg_group_create_planc_group(ucg_group_t *group)
         status = planc->group_create(planc_rscs[i].ctx, &params, &group->planc_groups[i]);
         if (status != UCG_OK) {
             ucg_error("Failed to create group of planc %s", planc->super.name);
-            goto err_destory_planc_group;
+            goto err_destroy_planc_group;
         }
         ++group->num_planc_groups;
     }
 
     return UCG_OK;
 
-err_destory_planc_group:
-    ucg_group_destory_planc_group(group);
+err_destroy_planc_group:
+    ucg_group_destroy_planc_group(group);
     return status;
 }
 
@@ -180,7 +180,7 @@ ucg_status_t ucg_group_create(ucg_context_h context, const ucg_group_params_t *p
         goto err_free_params;
     }
 
-    status = ucg_global_init_topo(grp);
+    status = ucg_group_init_topo(grp);
     if (status != UCG_OK) {
         goto err_destroy_planc_group;
     }
@@ -195,7 +195,7 @@ ucg_status_t ucg_group_create(ucg_context_h context, const ucg_group_params_t *p
     goto out;
 
 err_destroy_planc_group:
-    ucg_group_destory_planc_group(grp);
+    ucg_group_destroy_planc_group(grp);
 err_free_params:
     ucg_group_free_params(grp);
 err_free_grp:
@@ -205,7 +205,7 @@ out:
     return status;
 }
 
-void ucg_group_destory(ucg_group_h group)
+void ucg_group_destroy(ucg_group_h group)
 {
     UCG_CHECK_NULL_VOID(group);
 
@@ -214,7 +214,7 @@ void ucg_group_destory(ucg_group_h group)
 
     ucg_topo_cleanup(group->topo);
     ucg_group_free_plans(group);
-    ucg_group_destory_planc_group(group);
+    ucg_group_destroy_planc_group(group);
     ucg_group_free_params(group);
     ucg_free(group);
 

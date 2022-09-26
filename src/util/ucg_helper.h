@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_HELPER_H_
@@ -31,7 +31,7 @@
 #define _UCG_TOKENPASTE(_a, _b) _a ## _b
 #define UCG_TOKENPASTE(_a, _b)  _UCG_TOKENPASTE(_a, _b)
 
-/* Count number of marco arguments */
+/* Count number of macro arguments */
 #define _UCG_NUM_ARGS(_0,_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,N,...) N
 #define UCG_NUM_ARGS(...) _UCG_NUM_ARGS(, ## __VA_ARGS__,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0)
 
@@ -149,7 +149,7 @@ static inline ucg_status_t ucg_status_s2g(ucs_status_t ucs_status)
         CASE_S2G(ERR_NO_RESOURCE)
         CASE_S2G(ERR_NO_MEMORY)
         default:
-            return UCG_ERROR_NOT_FOUND;
+            return UCG_ERR_NOT_FOUND;
     }
 }
 

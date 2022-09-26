@@ -1,7 +1,7 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
-#define _GUN_SOURCE // For dladdr()
+#define _GNU_SOURCE // For dladdr()
 
 #include "ucg_planm.h"
 #include "util/ucg_parser.h"
@@ -53,7 +53,7 @@ static char *ucg_planm_get_default_path()
     char *dir = dirname(lib_path);
     int max_length = strlen(dir)
                      + 1 /* '/' */
-                     + strlen(UCG_PLANC_DIR)
+                     + strlen(UCG_PLANM_DIR)
                      + 1; /* '\0' */
     char *default_path = ucg_malloc(max_length, "planm default path");
     if (default_path == NULL) {
@@ -101,7 +101,7 @@ static inline void ucg_planm_release_pattern(char* pattern)
 
 ucg_status_t ucg_planm_load(const char* component_name, ucg_components_t *ucg_planm)
 {
-    if (ucg_planm.num != 0) {
+    if (ucg_planm->num != 0) {
         /* Loaded, return error */
         return UCG_ERR_INVALID_PARAM;
     }
@@ -134,10 +134,10 @@ ucg_status_t ucg_planm_load(const char* component_name, ucg_components_t *ucg_pl
     ucg_info("planm_pattern: %s", planm_pattern);
     status = ucg_components_load(planm_path, planm_pattern, ucg_planm);
     if (status != UCG_OK) {
-        ucg_error("Failed to load planc");
+        ucg_info("Failed to load planm");
     }
 
-    for (int i = 0; i < ucg_planm.num; ++i) {
+    for (int i = 0; i < ucg_planm->num; ++i) {
         ucg_info("Success to load planm %s", ucg_planm->components[i]->name);
     }
 
@@ -152,12 +152,12 @@ out:
     return status;
 }
 
-void ucg_planc_unload(ucg_components_t *ucg_planm)
+void ucg_planm_unload(ucg_components_t *ucg_planm)
 {
-    if (ucg_planm.num == 0) {
+    if (ucg_planm->num == 0) {
         return;
     }
-    ucg_components_unload(&ucg_planm);
+    ucg_components_unload(ucg_planm);
     ucg_planm->num = 0;
     ucg_planm->components = NULL;
     return;

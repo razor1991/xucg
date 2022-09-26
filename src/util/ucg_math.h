@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_MATH_H_
@@ -32,7 +32,7 @@
 #define DO_OP_MAX(_v1, _v2)     (_v1 > _v2 ? _v1 : _v2)
 #define DO_OP_MIN(_v1, _v2)     (_v1 < _v2 ? _v1 : _v2)
 #define DO_OP_SUM(_v1, _v2)     (_v1 + _v2)
-#define DO_OP_PORD(_v1, _v2)    (_v1 * _v2)
+#define DO_OP_PROD(_v1, _v2)    (_v1 * _v2)
 #define DO_OP_LAND(_v1, _v2)    (_v1 && _v2)
 #define DO_OP_BAND(_v1, _v2)    (_v1 & _v2)
 #define DO_OP_LOR(_v1, _v2)     (_v1 || _v2)
@@ -62,10 +62,10 @@
     ucg_align_down_pow2((_n) + (_alignment) - 1, _alignment)
 
 #define ucg_align_down_pow2_ptr(_ptr, _alignment) \
-    ((typeof(ptr))ucg_align_down_pow2((uintptr_t)(_ptr), (_alignment)))
+    ((typeof(_ptr))ucg_align_down_pow2((uintptr_t)(_ptr), (_alignment)))
 
 #define ucg_align_up_pow2_ptr(_ptr, _alignment) \
-    ((typeof(ptr))ucg_align_up_pow2((uintptr_t)(_ptr), (_alignment)))
+    ((typeof(_ptr))ucg_align_up_pow2((uintptr_t)(_ptr), (_alignment)))
 
 #define ucg_roundup_pow2(_n) \
     ({ \
@@ -84,10 +84,10 @@
     (((_n) == 0) ? 0 : ucg_roundup_pow2(_n))
 
 /* Return values: 0 - aligned, non-0 - unaligned */
-#define ucg_check_if_aligen_pow2(_n, _p) ((_n) & ((_p) - 1))
+#define ucg_check_if_align_pow2(_n, _p) ((_n) & ((_p) - 1))
 
 /* Return values: off-set from the alignment */
-#define ucg_padding_pow2(_n, _p) ucg_check_if_aligen_pow2(_n, _p)
+#define ucg_padding_pow2(_n, _p) ucg_check_if_align_pow2(_n, _p)
 
 #define UCG_MASK_SAFE(_i) \
     (((_i) >= 64) ? ((uint64_t)(-1)) : UCG_MASK(_i))
@@ -171,8 +171,8 @@ static inline double ucg_log2(double x)
 )
 
 /* Returns the number of 1-bits in x */
-#default ucg_popcount(_n) \
-    ((sizeof(_n) <= 4) ? __builtin_popcount((uint32_t)(_n)) :
+#define ucg_popcount(_n) \
+    ((sizeof(_n) <= 4) ? __builtin_popcount((uint32_t)(_n)) : \
                          __builtin_popcountl(_n))
 
 /**

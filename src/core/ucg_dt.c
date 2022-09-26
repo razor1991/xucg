@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_dt.h"
@@ -11,12 +11,12 @@
 #include "util/ucg_log.h"
 
 #define UCG_DT_PREDEFINED_FLAGS UCG_DT_FLAG_IS_PREDEFINED | UCG_DT_FLAG_IS_CONTIGUOUS
-#define UCG_OP_PREDEFINED_FLAGS UCG_OP_FLAG_IS_PREDEFINED | UCG_OP_FLAG_IS_COMMUTATIVE | UCG_OP_FLAG_IS_PRESISTENT
+#define UCG_OP_PREDEFINED_FLAGS UCG_OP_FLAG_IS_PREDEFINED | UCG_OP_FLAG_IS_COMMUTATIVE | UCG_OP_FLAG_IS_PERSISTENT
 
 #define UCG_OP_FUNC_MAX(_target, _source) (_target) = (_target) > (_source) ? (_target) : (_source)
 #define UCG_OP_FUNC_MIN(_target, _source) (_target) = (_target) < (_source) ? (_target) : (_source)
-#define UCG_OP_FUNC_SUM(_target, _source) (_target) += (_target)
-#define UCG_OP_FUNC_PROD(_target, _source) (_target) *= (_target)
+#define UCG_OP_FUNC_SUM(_target, _source) (_target) += (_source)
+#define UCG_OP_FUNC_PROD(_target, _source) (_target) *= (_source)
 #define UCG_OP_FUNC(_type, _dt, _func) \
     static inline ucg_status_t ucg_op_func_##_type##_##_dt(void *op, \
                                                            const void *source, \
@@ -86,7 +86,7 @@
         _state->dt = _dt; \
         _state->count = _count; \
         if (ucg_dt_is_contiguous(_dt)) { \
-            _state->config.buffer = (void*)_buffer; \
+            _state->contig.buffer = (void*)_buffer; \
             break; \
         } \
         \
@@ -177,7 +177,7 @@ static void ucg_dt_pack_contiguous(ucg_dt_state_t *state, uint64_t offset,
                                    void *dst, uint64_t len)
 {
     ucg_assert(ucg_dt_is_contiguous(state->dt));
-    memcpy(dst, state->config.buffer + offset, len);
+    memcpy(dst, state->contig.buffer + offset, len);
     return;
 }
 
@@ -185,7 +185,7 @@ static void ucg_dt_unpack_contiguous(ucg_dt_state_t *state, uint64_t offset,
                                      const void *src, uint64_t len)
 {
     ucg_assert(ucg_dt_is_contiguous(state->dt));
-    memcpy(state->config.buffer + offset, src, len);
+    memcpy(state->contig.buffer + offset, src, len);
     return;
 }
 
@@ -250,12 +250,12 @@ ucg_status_t ucg_dt_create(const ucg_dt_params_t *params, ucg_dt_h *dt)
     return UCG_OK;
 }
 
-void ucg_dt_destory(ucg_dt_h dt)
+void ucg_dt_destroy(ucg_dt_h dt)
 {
     UCG_CHECK_NULL_VOID(dt);
 
-    if (dt->opaque.destory != NULL) {
-        dt->opaque.destory(dt->opaque.obj);
+    if (dt->opaque.destroy != NULL) {
+        dt->opaque.destroy(dt->opaque.obj);
     }
 
     if (!ucg_dt_is_predefined(dt)) {
@@ -284,10 +284,10 @@ static ucg_status_t ucg_dt_memcpy_pack(void *dst, int32_t dcount, ucg_dt_t *dst_
                                        const void *src, int32_t scount, ucg_dt_t *src_dt)
 {
     ucg_assert(ucg_dt_is_contiguous(dst_dt));
-    ucg_assert(ucg_dt_is_contiguous(src_dt));
+    ucg_assert(!ucg_dt_is_contiguous(src_dt));
 
     ucg_status_t status = UCG_OK;
-    ucg_dt_generic_t *state = ucg_dt_start_pack(src, src_dt, scount);
+    ucg_dt_state_t *state = ucg_dt_start_pack(src, src_dt, scount);
     if (state == NULL) {
         return UCG_ERR_NO_RESOURCE;
     }
@@ -317,11 +317,11 @@ out_finish_pack:
 static ucg_status_t ucg_dt_memcpy_unpack(void *dst, int32_t dcount, ucg_dt_t *dst_dt,
                                          const void *src, int32_t scount, ucg_dt_t *src_dt)
 {
-    ucg_assert(ucg_dt_is_contiguous(dst_dt));
+    ucg_assert(!ucg_dt_is_contiguous(dst_dt));
     ucg_assert(ucg_dt_is_contiguous(src_dt));
 
     ucg_status_t status;
-    ucg_dt_generic_t *state = ucg_dt_start_unpack(dst, dst_dt, scount);
+    ucg_dt_state_t *state = ucg_dt_start_unpack(dst, dst_dt, dcount);
     if (state == NULL) {
         return UCG_ERR_NO_RESOURCE;
     }
@@ -334,7 +334,7 @@ static ucg_status_t ucg_dt_memcpy_unpack(void *dst, int32_t dcount, ucg_dt_t *ds
         len = src_len - offset;
         status = ucg_dt_unpack(state, offset, src + offset, &len);
         if (status != UCG_OK) {
-            goto out_finish_pack;
+            goto out_finish_unpack;
         }
         if (len == 0) {
             break;
@@ -343,7 +343,7 @@ static ucg_status_t ucg_dt_memcpy_unpack(void *dst, int32_t dcount, ucg_dt_t *ds
     }
     status = src_len <= dst_len ? UCG_OK : UCG_ERR_TRUNCATE;
 
-out_finish_pack:
+out_finish_unpack:
     ucg_dt_finish(state);
     return status;
 }
@@ -358,14 +358,14 @@ static ucg_status_t ucg_dt_memcpy_generic(void *dst, int32_t dcount, ucg_dt_t *d
     }
 
     ucg_status_t status = UCG_ERR_NO_RESOURCE;
-    ucg_dt_generic_t *pack_state = ucg_dt_start_pack(src, src_dt, scount);
+    ucg_dt_state_t *pack_state = ucg_dt_start_pack(src, src_dt, scount);
     if (pack_state == NULL) {
         goto out;
     }
 
-    ucg_dt_generic_t *unpack_state = ucg_dt_start_unpack(dst, dst_dt, scount);
+    ucg_dt_state_t *unpack_state = ucg_dt_start_unpack(dst, dst_dt, dcount);
     if (unpack_state == NULL) {
-        goto out;
+        goto out_finish_pack;
     }
 
     uint64_t max_len;
@@ -456,7 +456,7 @@ ucg_status_t ucg_dt_pack(ucg_dt_state_t *state, uint64_t offset, void *dst,
     return status;
 }
 
-ucg_dt_state_t* ucg_dt_start_unpack(const void *buffer, const ucg_dt_t *dt, int32_t count)
+ucg_dt_state_t* ucg_dt_start_unpack(void *buffer, const ucg_dt_t *dt, int32_t count)
 {
     UCG_CHECK_NULL(NULL, buffer, dt);
 
@@ -499,7 +499,7 @@ ucg_status_t ucg_op_create(const ucg_op_params_t *params, ucg_op_h *op)
     if (type != UCG_OP_TYPE_USER ||
         !(field_mask & UCG_OP_PARAMS_FIELD_USER_OP) ||
         !(field_mask & UCG_OP_PARAMS_FIELD_USER_FUNC) ||
-        !(field_mask & UCG_OP_PARAMS_FIELD_USER_COMMUTATIVE)) {
+        !(field_mask & UCG_OP_PARAMS_FIELD_COMMUTATIVE)) {
         return UCG_ERR_INVALID_PARAM;
     }
 
@@ -508,7 +508,7 @@ ucg_status_t ucg_op_create(const ucg_op_params_t *params, ucg_op_h *op)
         return UCG_ERR_NO_MEMORY;
     }
     gop->super.type = UCG_OP_TYPE_USER;
-    gop->super.flags = UCG_OP_FLAG_IS_PRESISTENT;
+    gop->super.flags = UCG_OP_FLAG_IS_PERSISTENT;
     gop->super.flags |= params->commutative ? UCG_OP_FLAG_IS_COMMUTATIVE : 0;
     gop->super.func = params->user_func;
     gop->user_op = params->user_op;
@@ -542,14 +542,14 @@ ucg_status_t ucg_op_init(const ucg_op_params_t *params, ucg_op_h op, uint32_t op
     ucg_op_type_t type = params->type;
     if (ucg_op_is_predefined_type(type)) {
         *op = ucg_op_predefined[type];
-        op->type &= ~UCG_OP_FLAG_IS_PRESISTENT;
+        op->flags &= ~UCG_OP_FLAG_IS_PERSISTENT;
         return UCG_OK;
     }
 
     if (type != UCG_OP_TYPE_USER ||
         !(field_mask & UCG_OP_PARAMS_FIELD_USER_OP) ||
         !(field_mask & UCG_OP_PARAMS_FIELD_USER_FUNC) ||
-        !(field_mask & UCG_OP_PARAMS_FIELD_USER_COMMUTATIVE)) {
+        !(field_mask & UCG_OP_PARAMS_FIELD_COMMUTATIVE)) {
         return UCG_ERR_INVALID_PARAM;
     }
 
@@ -559,9 +559,4 @@ ucg_status_t ucg_op_init(const ucg_op_params_t *params, ucg_op_h op, uint32_t op
     gop->super.func = params->user_func;
     gop->user_op = params->user_op;
     return UCG_OK;
-}
-
-uint32_t ucg_op_size()
-{
-    return sizeof(ucg_op_generic_t);
 }

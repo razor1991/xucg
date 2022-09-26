@@ -1,12 +1,12 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_rh.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 
 /**
- * Recursive Havling Algorithm
+ * Recursive Halving Algorithm
  * rank_id         0     1     2     3     4     5
  * step pre        0<----------------------4
  *                       1<----------------------5
@@ -23,33 +23,33 @@ void ucg_algo_rh_iter_init(ucg_algo_rh_iterator_t *p, int group_size, ucg_rank_t
     p->my_rank = my_rank;
     p->iteration = 0;
 
-    /* Determin nearest power of two less than or equal to size */
+    /* Determine nearest power of two less than or equal to size */
     int adjust_group_size = UCG_BIT(ucg_ilog2(group_size));
     p->adjust_group_size = adjust_group_size;
     p->max_iteration = ucg_ilog2(adjust_group_size);
 
-    if (my_rank <　adjust_group_size) {
-        p->my_type = UCG_ALGO_RH_ITER_BASE;
+    if (my_rank < adjust_group_size) {
+        p->my_type = UCG_ALGO_RH_RANK_BASE;
         if (my_rank < group_size - adjust_group_size) {
-            p->my_type |= UCG_ALGO_RH_ITER_PROXY;
+            p->my_type |= UCG_ALGO_RH_RANK_PROXY;
         }
     } else {
-        p->my_type = UCG_ALGO_RH_ITER_EXTRA;
+        p->my_type = UCG_ALGO_RH_RANK_EXTRA;
     }
 }
 
-void ucg_algo_rh_get_extra(ucg_algo_rh_iterator_t *p, ucg_rank_t *peer)
+void ucg_algo_rh_get_extra(const ucg_algo_rh_iterator_t *p, ucg_rank_t *peer)
 {
-    if (!(p->my_type & UCG_ALGO_RH_ITER_PROXY)) {
+    if (!(p->my_type & UCG_ALGO_RH_RANK_PROXY)) {
         *peer = UCG_INVALID_RANK;
         return;
     }
-    *peer = p->my_rank - p->adjust_group_size;
+    *peer = p->my_rank + p->adjust_group_size;
 }
 
-void ucg_algo_rh_get_proxy(ucg_algo_rh_iterator_t *p, ucg_rank_t *peer)
+void ucg_algo_rh_get_proxy(const ucg_algo_rh_iterator_t *p, ucg_rank_t *peer)
 {
-    if (!(p->my_type & UCG_ALGO_RH_ITER_EXTRA)) {
+    if (!(p->my_type & UCG_ALGO_RH_RANK_EXTRA)) {
         *peer = UCG_INVALID_RANK;
         return;
     }
@@ -58,7 +58,7 @@ void ucg_algo_rh_get_proxy(ucg_algo_rh_iterator_t *p, ucg_rank_t *peer)
 
 void ucg_algo_rh_get_next_base(ucg_algo_rh_iterator_t *p, ucg_rank_t *peer)
 {
-    if (!(p->my_type & UCG_ALGO_RH_ITER_BASE) || p->iteration >= p->max_iteration) {
+    if (!(p->my_type & UCG_ALGO_RH_RANK_BASE) || p->iteration >= p->max_iteration) {
         *peer = UCG_INVALID_RANK;
         return;
     }

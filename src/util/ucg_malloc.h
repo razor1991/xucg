@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_MALLOC_H_
@@ -9,12 +9,12 @@
 #include <string.h>
 
 #ifdef UCG_ENABLE_DEBUG
-typedef void *(*ucg_malloc_hook_t)(size_t size, const char *name);
+typedef void *(*ucg_malloc_hook_t)(size_t s, const char *name);
 typedef void *(*ucg_calloc_hook_t)(size_t nmemb, size_t size, const char *name);
 typedef void *(*ucg_realloc_hook_t)(void *ptr, size_t size, const char *name);
 typedef int   (*ucg_posix_memalign_hook_t)(void **memptr, size_t alignment, size_t size, const char *name);
 typedef void  (*ucg_free_hook_t)(void *ptr);
-typedef void *(*ucg_strdup_hook)(const char *s, const char *name);
+typedef char *(*ucg_strdup_hook_t)(const char *s, const char *name);
 /* ucg malloc hook */
 extern ucg_malloc_hook_t           ucg_malloc_hook;
 extern ucg_calloc_hook_t           ucg_calloc_hook;

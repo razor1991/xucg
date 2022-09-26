@@ -1,12 +1,12 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_DT_H_
 #define UCG_DT_H_
 
 #include "ucg/api/ucg.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 
 /* NOTE: Only support UCG_MEM_TYPE_HOST. */
 
@@ -18,14 +18,14 @@ typedef enum {
 typedef enum {
     UCG_OP_FLAG_IS_PREDEFINED  = UCG_BIT(0),
     UCG_OP_FLAG_IS_COMMUTATIVE = UCG_BIT(1),
-    UCG_OP_FLAG_IS_PRESISTENT  = UCG_BIT(2),
+    UCG_OP_FLAG_IS_PERSISTENT  = UCG_BIT(2),
 } ucg_op_flag_t;
 
 typedef struct {
     /** opaque object */
     uint64_t obj;
-    /** Callback to destory opaque objext */
-    void (*destory)(uint64_t obj);
+    /** Callback to destroy opaque object */
+    void (*destroy)(uint64_t obj);
 } ucg_dt_opaque_t;
 
 typedef struct ucg_dt {
@@ -130,8 +130,8 @@ ucg_dt_t* ucg_dt_get_predefined(ucg_dt_type_t type);
 /**
  * @brief Copy src to dst
  *
- * If all data in src is copied to sdt, it will return UCG_OK. If the dst buffer
- * is too small to contains all date in src, it will return UCG_ERR_TRUNCATE.
+ * If all data in src is copied to dst, it will return UCG_OK. If the dst buffer
+ * is too small to contains all data in src, it will return UCG_ERR_TRUNCATE.
  * If other errors are returned, it means nothing was copied.
  */
 ucg_status_t ucg_dt_memcpy(void *dst, int32_t dcount, ucg_dt_t *dst_dt,
@@ -145,11 +145,11 @@ uint32_t ucg_dt_packed_size(ucg_dt_state_t *state);
 ucg_status_t ucg_dt_pack(ucg_dt_state_t *state, uint64_t offset, void *dst,
                          uint64_t *length);
 
-ucg_dt_state_t* ucg_dt_start_unpack(const void *buffer, const ucg_dt_t *dt,
+ucg_dt_state_t* ucg_dt_start_unpack(void *buffer, const ucg_dt_t *dt,
                                     int32_t count);
 
 ucg_status_t ucg_dt_unpack(ucg_dt_state_t *state, uint64_t offset,
-                           void *dst, uint64_t *length);
+                           const void *src, uint64_t *length);
 
 void ucg_dt_finish(ucg_dt_state_t *state);
 
@@ -166,9 +166,9 @@ static inline uint8_t ucg_op_is_commutative(const ucg_op_t *op)
     return !!(op->flags & UCG_OP_FLAG_IS_COMMUTATIVE);
 }
 
-static inline uint8_t ucg_op_is_presistent(const ucg_op_t *op)
+static inline uint8_t ucg_op_is_persistent(const ucg_op_t *op)
 {
-    return !!(op->flags & UCG_OP_FLAG_IS_PRESISTENT);
+    return !!(op->flags & UCG_OP_FLAG_IS_PERSISTENT);
 }
 
 static inline ucg_op_type_t ucg_op_type(const ucg_op_t *op)
@@ -176,15 +176,18 @@ static inline ucg_op_type_t ucg_op_type(const ucg_op_t *op)
     return op->type;
 }
 
-static inline ucg_status_t ucg_op_reduce(ucg_op_t *op, const void *source, void *target,
-                                         int32_t count, ucg_dt_t *dt)
+static inline ucg_status_t ucg_op_reduce(ucg_op_t *op,
+                                         const void *source,
+                                         void *target,
+                                         int32_t count,
+                                         ucg_dt_t *dt)
 {
     if (source == NULL || target == NULL || count == 0) {
         return UCG_OK;
     }
 
     if (ucg_op_is_predefined(op)) {
-        return op->func(op, source, target, cound, dt);
+        return op->func(op, source, target, count, dt);
     }
 
     ucg_op_generic_t *gop = ucg_derived_of(op, ucg_op_generic_t);

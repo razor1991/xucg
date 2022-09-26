@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_PLANC_H_
@@ -24,7 +24,7 @@
 
 /**
  * @ingroup UCG_PLANC
- * @brief Symbol name of PlanC object
+ * @brief Symbol name of PlanC object.
  *
  * The length of _name should not exceed @ref UCG_COMPONENT_OBJNAME_MAX_LEN - 10
  */
@@ -40,7 +40,7 @@
 
 /**
  * @ingroup UCG_PLANC
- * @brief PlanC context attributes field mask
+ * @brief PlanC context attributes field mask.
  */
 typedef enum {
     UCG_PLANC_CONTEXT_ATTR_FIELD_ADDR = UCG_BIT(0), /**< Context address. */
@@ -50,7 +50,7 @@ typedef enum {
 
 /**
  * @ingroup UCG_PLANC
- * @brief Parameters for initializing PlanC context
+ * @brief Parameters for initializing PlanC context.
  */
 typedef struct ucg_planc_params {
     /** User initialized context. */
@@ -60,7 +60,7 @@ typedef struct ucg_planc_params {
 
 /**
  * @ingroup UCG_PLANC
- * @brief PlanC context attributes
+ * @brief PlanC context attributes.
  */
 typedef struct ucg_planc_context_attr {
     /**
@@ -87,7 +87,7 @@ typedef struct ucg_planc_context_attr {
 
 /**
  * @ingroup UCG_PLANC
- * @brief Parameters for creating PlanC group
+ * @brief Parameters for creating PlanC group.
  */
 typedef struct ucg_planc_group_params {
     ucg_group_t *group;
@@ -111,7 +111,7 @@ UCG_CLASS_DECLARE(ucg_planc_group_t, UCG_CLASS_CTOR_ARGS(ucg_group_t *group));
  *
  * PlanC supports dynamic loading through inheriting @ref ucg_component_t. PlanC
  * provides interfaces similar to the UCG API. The main difference is that PlanC
- * does not privides interfaces for creating collective operation. Instead, it
+ * does not provide interfaces for creating collective operation. Instead, it
  * provides an interface to get a selector that contains plans and selection
  * policy. Therefore, up-layer can select the best plan from all PlanC plans.
  *
@@ -137,12 +137,12 @@ typedef struct ucg_planc {
 
     /* Context */
     ucg_planc_context_init_func_t context_init;
-    ucg_planc_config_modify_func_t context_cleanup;
-    ucg_planc_config_release_func_t context_query;
+    ucg_planc_context_cleanup_func_t context_cleanup;
+    ucg_planc_context_query_func_t context_query;
 
     /* Group */
     ucg_planc_group_create_func_t group_create;
-    ucg_planc_group_destory_func_t group_destory;
+    ucg_planc_group_destroy_func_t group_destroy;
 
     /* Plan */
     ucg_planc_get_plans_func_t get_plans;
@@ -150,9 +150,9 @@ typedef struct ucg_planc {
 
 /**
  * @ingroup UCG_PLANC
- * @brief Load all plan component
+ * @brief Load all plan component.
  *
- * This routine loads library the match @b UCG_PLANC_LIBNAME(*) in @b UCG_PLANC_PATH.
+ * This routine loads library that match @b UCG_PLANC_LIBNAME(*) in @b UCG_PLANC_PATH.
  *
  * @note It can be called only once.
  */
@@ -160,7 +160,7 @@ ucg_status_t ucg_planc_load();
 
 /**
  * @ingroup UCG_PLANC
- * @brief Unload plan component
+ * @brief Unload plan component.
  *
  * This routine is the inverse of @ref ucg_planc_load. Once this routine is
  * invoked, the behaviour of using returned ucg_planc_t* is undefined.

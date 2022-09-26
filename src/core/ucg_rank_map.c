@@ -1,11 +1,11 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_rank_map.h"
 
 #include "util/ucg_malloc.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 #include "util/ucg_log.h"
 
 ucg_status_t ucg_rank_map_init_by_array(ucg_rank_map_t *map, ucg_rank_t **ranks,
@@ -124,7 +124,7 @@ ucg_rank_t ucg_rank_map_eval(const ucg_rank_map_t *map, ucg_rank_t src_rank)
     UCG_CHECK_NULL(UCG_INVALID_RANK, map);
     UCG_CHECK_OUT_RANGE(UCG_INVALID_RANK, src_rank, 0, (ucg_rank_t)map->size);
 
-    ucg_rank_t dest_rank UCG_INVALID_RANK;
+    ucg_rank_t dest_rank = UCG_INVALID_RANK;
     switch (map->type) {
         case UCG_RANK_MAP_TYPE_FULL:
             dest_rank = src_rank;

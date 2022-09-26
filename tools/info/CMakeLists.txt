@@ -17,7 +17,7 @@ if (UCG_BUILD_PLANC_UCX MATCHES "ON")
                                ${CMAKE_SOURCE_DIR}/src/planc/ucx)
 endif()
 
-if (UCX_BUILD_PLANC_HCCL MATCHED "ON")
+if (UCG_BUILD_PLANC_HCCL MATCHES "ON")
     add_definitions(-DUCG_BUILD_PLANC_HCCL)
     target_include_directories(ucg_info PRIVATE
                                ${CMAKE_SOURCE_DIR}/src/planc/hccl)
@@ -26,9 +26,9 @@ if (UCX_BUILD_PLANC_HCCL MATCHED "ON")
         target_link_directories(ucg_info PRIVATE ${UCG_BUILD_WITH_HCCL}/lib64)
     endif()
 
-    target_link_directories(ucg_info ascendcl)
+    target_link_libraries(ucg_info ascendcl)
 endif()
 
 # Install
 install(TARGETS ucg_info
-        RUNTIME DESTINATION ${UCG_INSTALL_BINDIR}) 
+        RUNTIME DESTINATION ${UCG_INSTALL_BINDIR})

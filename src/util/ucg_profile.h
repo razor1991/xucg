@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_PROFILE_H_
@@ -13,13 +13,13 @@
 #include <ucs/profile/profile_off.h>
 #endif
 
-/** @brief record a scope-begin profile event */
+/** @brief record a scope-begin profiling event */
 #define UCG_PROFILE_SCOPE_BEGIN()       UCS_PROFILE_SCOPE_BEGIN()
-/** @brief record a scope-end profile event */
+/** @brief record a scope-end profiling event */
 #define UCG_PROFILE_SCOPE_END(_name)    UCS_PROFILE_SCOPE_END(_name)
 
 /**
- * @brief declare a profiled scope of code
+ * @brief declare a profiled scope of code.
  *
  * Usage:
  * UCG_PROFILE_CODE(<name>) {
@@ -38,8 +38,8 @@
  * }
  *
  * @param _rettype  the return type of function
- * @param _name     the name of funciton
- * @param _arglist  the argument list of function (without type)
+ * @param _name     the name of function
+ * @param _arglist  the argument list of function (without types)
  * @param ...       the argument declarations (with types and args's name should
  *                  keep same with _arglist)
  */
@@ -54,8 +54,8 @@
  *      <function-body>
  * }
  *
- * @param _name     the name of funciton
- * @param _arglist  the argument list of function (without type)
+ * @param _name     the name of function
+ * @param _arglist  the argument list of function (without types)
  * @param ...       the argument declarations (with types and args's name should
  *                  keep same with _arglist)
  */
@@ -83,6 +83,7 @@
  * @param _func     the name of function will be profiled
  * @param ...       the function arguments
  */
-#define UCG_PROFILE_NAMED_CALL(_func, ...)        UCS_PROFILE_NAMED_CALL(_func, ## __VA_ARGS__)
-#define UCG_PROFILE_NAMED_CALL_VOID(_func, ...)   UCS_PROFILE_NAMED_CALL_VOID(_func, ## __VA_ARGS__)
+#define UCG_PROFILE_NAMED_CALL(_name, _func, ...)        UCS_PROFILE_NAMED_CALL(_name, _func, ## __VA_ARGS__)
+#define UCG_PROFILE_NAMED_CALL_VOID(_name, _func, ...)   UCS_PROFILE_NAMED_CALL_VOID(_name, _func, ## __VA_ARGS__)
+
 #endif

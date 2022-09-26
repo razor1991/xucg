@@ -1,6 +1,6 @@
-#
-# Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
-#
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ */
 
 #include "ucg_info.h"
 
@@ -8,13 +8,13 @@
 #include "core/ucg_group.h"
 #include "core/ucg_plan.h"
 
-static ugc_status_t oob_allgather(const void *sendbuf, void *recvbuf, int count, void *group)
+static ucg_status_t oob_allgather(const void *sendbuf, void *recvbuf, int count, void *group)
 {
-    memcopy(recvbuf, sendbuf, count);
+    memcpy(recvbuf, sendbuf, count);
     return UCG_OK;
 }
 
-static ugc_status_t get_location(ucg_rank_t rank, ucg_location_t *location)
+static ucg_status_t get_location(ucg_rank_t rank, ucg_location_t *location)
 {
     location->field_mask = UCG_LOCATION_FIELD_NODE_ID | UCG_LOCATION_FIELD_SOCKET_ID;
     location->node_id = 0;
@@ -29,7 +29,7 @@ static void init_context(ucg_context_h *context)
 
     ucg_params_t params;
     params.field_mask = UCG_PARAMS_FIELD_OOB_GROUP |
-                        UCG_PARAMS_FIELD_LOCATTION_CB;
+                        UCG_PARAMS_FIELD_LOCATION_CB;
     params.oob_group.allgather = oob_allgather;
     params.oob_group.myrank = 0;
     params.oob_group.size = 1;
@@ -40,14 +40,14 @@ static void init_context(ucg_context_h *context)
     return;
 }
 
-static void create_group(ucg_context_h, ucg_group_h *group)
+static void create_group(ucg_context_h context, ucg_group_h *group)
 {
     ucg_group_params_t params;
-    params.field_mask = UCG_PARAMS_FIELD_ID |
-                        UCG_PARAMS_FIELD_SIZE |
-                        UCG_PARAMS_FIELD_MYRANK |
-                        UCG_PARAMS_FIELD_RANK_MAP |
-                        UCG_PARAMS_FIELD_OOB_GROUP;
+    params.field_mask = UCG_GROUP_PARAMS_FIELD_ID |
+                        UCG_GROUP_PARAMS_FIELD_SIZE |
+                        UCG_GROUP_PARAMS_FIELD_MYRANK |
+                        UCG_GROUP_PARAMS_FIELD_RANK_MAP |
+                        UCG_GROUP_PARAMS_FIELD_OOB_GROUP;
     params.id = 0;
     params.size = 1;
     params.myrank = 0;
@@ -71,7 +71,7 @@ void print_plans()
 
     ucg_plans_print(group->plans, stdout);
 
-    ucg_group_destory(group);
+    ucg_group_destroy(group);
     ucg_cleanup(context);
 
     return;

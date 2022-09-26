@@ -1,6 +1,6 @@
-#
-# Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
-#
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ */
 
 #include "core/ucg_context.h"
 #include "core/ucg_group.h"
@@ -36,14 +36,14 @@ void print_types()
     UCG_PRINT_SIZE(ucg_group_t);
     UCG_PRINT_SIZE(ucg_request_t);
 
-#ifdef UCG_BUILD_PLAC_UCX
+#ifdef UCG_BUILD_PLANC_UCX
     printf("\nPLANC UCX:\n");
     UCG_PRINT_SIZE(ucg_planc_ucx_context_t);
     UCG_PRINT_SIZE(ucg_planc_ucx_group_t);
     UCG_PRINT_SIZE(ucg_planc_ucx_op_t);
 #endif
 
-#ifdef UCG_BUILD_PLAC_HCCL
+#ifdef UCG_BUILD_PLANC_HCCL
     printf("\nPLANC HCCL:\n");
     UCG_PRINT_SIZE(ucg_planc_hccl_context_t);
     UCG_PRINT_SIZE(ucg_planc_hccl_group_t);

@@ -1,11 +1,11 @@
-@
-# Copyright (C) Huawei Technologies Co., Ltd. 2020-2022. All rights reserved.
+#
+# Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
 #
 # Dependencies of test_planc.cpp
 
 # Build planc fake.
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/planc_fake.c
-     "#include \"planc/ucg_pkanc.h\"
+     "#include \"planc/ucg_planc.h\"
       ucg_planc_t UCG_PLANC_OBJNAME(fake) = {
           .super.name = \"fake\",
       };

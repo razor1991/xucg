@@ -1,6 +1,7 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
+
 #ifndef UCG_CLASS_H_
 #define UCG_CLASS_H_
 
@@ -17,14 +18,14 @@
     } ucg_class_##_type##_t; \
     extern ucg_class_##_type##_t UCG_CLASS_NAME(_type);
 
-/* Define a base class. */
+/** Define a base class. */
 #define UCG_CLASS_DEFINE(_type, _ctor, _dtor) \
     ucg_class_##_type##_t UCG_CLASS_NAME(_type) = { \
         .ctor = _ctor, \
         .dtor = _dtor, \
     };
 
-/* Call the constructor of the class type. */
+/** Call the constructor of the class type. */
 #define UCG_CLASS_CONSTRUCT(_type, _self, ...) \
     ({ \
         ucg_class_##_type##_t *class_type = &UCG_CLASS_NAME(_type); \
@@ -32,14 +33,14 @@
         status; \
     })
 
-/* Call the destructor of the class type. */
+/** Call the destructor of the class type. */
 #define UCG_CLASS_DESTRUCT(_type, _self) \
     do { \
         ucg_class_##_type##_t *class_type = &UCG_CLASS_NAME(_type); \
         class_type->dtor(_self); \
     } while(0)
 
-/* Allocate space and call the constructor of the class type. */
+/** Allocate space and call the constructor of the class type. */
 #define UCG_CLASS_NEW(_type, ...) \
     ({ \
         _type *obj = ucg_malloc(sizeof(_type), #_type); \
@@ -53,7 +54,7 @@
         obj; \
     })
 
-/* Call the destructor of the class type and release the space. */
+/** Call the destructor of the class type and release the space. */
 #define UCG_CLASS_DELETE(_type, _self) \
     do { \
         UCG_CLASS_DESTRUCT(_type, _self); \

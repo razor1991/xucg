@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2019-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_H_
@@ -15,49 +15,49 @@ extern "C" {
 /**
  * @defgroup UCG_BASE UCG Base
  * @{
- * Base data structures and toutine used by other groups.
+ * Base data structures and routines used by other groups.
  * @}
  */
 
 /**
- * @defgroup UCG_DT UCG Date Type
+ * @defgroup UCG_DT UCG Data Type
  * @{
- * Data Structures and routines of UCG Date Type.
+ * Data structures and routines of UCG Data Type.
  * @}
  */
 
 /**
  * @defgroup UCG_CONTEXT UCG Application Context
  * @{
- * Data Structures and routines of UCG Application Context.
+ * Data structures and routines of UCG Application Context.
  * @}
  */
 
 /**
  * @defgroup UCG_GLOBAL UCG GLOBAL RESOURCES
  * @{
- * Data Structures and routines of UCG GLOBAL RESOURCES.
+ * Data structures and routines of UCG GLOBAL RESOURCES.
  * @}
  */
 
 /**
  * @defgroup UCG_OOB UCG OOB RESOURCES
  * @{
- * Data Structures and routines of UCG OOB RESOURCES.
+ * Data structures and routines of UCG OOB RESOURCES.
  * @}
  */
 
 /**
  * @defgroup UCG_GROUP UCG Communication Group
  * @{
- * Data Structures and routines of UCG Communication Group.
+ * Data structures and routines of UCG Communication Group.
  * @}
  */
 
 /**
  * @defgroup UCG_REQUEST UCG Collective Operation Request
  * @{
- * Data Structures and routines of UCG Collective Operation Request.
+ * Data structures and routines of UCG Collective Operation Request.
  * @}
  */
 
@@ -69,33 +69,33 @@ extern "C" {
  */
 /**
  * @ingroup UCG_BASE
- * @brief The i_th bit.
+ * @brief The i-th bit.
  */
-@define UCG_BIT(i) (1ul << (i))
+#define UCG_BIT(i) (1ul << (i))
 
 /**
  * @ingroup UCG_BASE
  * @brief Mask of bits 0..i-1.
  */
-@define UCG_MASK(i) (UCG_BIT(i) - 1)
+#define UCG_MASK(i) (UCG_BIT(i) - 1)
 
 /**
  * @ingroup UCG_BASE
- * @brief If passing UCG_IN_PLACE as the value of sendbuf, UCG woll treat the
+ * @brief If passing UCG_IN_PLACE as the value of sendbuf, UCG will treat the
  * recv buffer as send buffer. In such a case, sendcount and sendtype are ignored.
  */
-@define UCG_IN_PLACE(i) ((void*)1)
+#define UCG_IN_PLACE ((void*)1)
 
 /**
  * @ingroup UCG_BASE
  * @brief Common invalid rank.
  */
-@define UCG_INVALID_RANK ((ucg_rant_t)-1)
+#define UCG_INVALID_RANK ((ucg_rank_t)-1)
 
 
 /*
  *******************************************************************************
- *                           Macro define
+ *                           Type define
  *******************************************************************************
  */
 
@@ -153,7 +153,7 @@ typedef enum {
     /* Operation is successful. */
     UCG_OK = 0,
     /* Operation is still in progress. */
-    UCG_IN_PROGRESS = 1,
+    UCG_INPROGRESS = 1,
 
     /* Failure codes. */
     UCG_ERR_UNSUPPORTED = -1,
@@ -171,9 +171,9 @@ typedef enum {
  * @brief UCG location field mask.
  */
 typedef enum {
-    UCG_LOCATIONFIELD_SOCKET_ID = UCG_BIT(0),
-    UCG_LOCATIONFIELD_NODE_ID = UCG_BIT(1),
-    UCG_LOCATIONFIELD_SUBNET_ID = UCG_BIT(2),
+    UCG_LOCATION_FIELD_SOCKET_ID = UCG_BIT(0),
+    UCG_LOCATION_FIELD_NODE_ID = UCG_BIT(1),
+    UCG_LOCATION_FIELD_SUBNET_ID = UCG_BIT(2),
 } ucg_location_field_t;
 
 /**
@@ -189,11 +189,11 @@ typedef enum {
 
 /**
  * @ingroup UCG_BASE
- * @brief Rank mapping type.
+ * @brief Memory type.
  */
 typedef enum {
     UCG_MEM_TYPE_HOST, /**< Default system memory. */
-    UCG_MEM_TYPE_ACL, /**< Huawei ACL memory */
+    UCG_MEM_TYPE_ACL, /**< Huawei ACL memory. */
     UCG_MEM_TYPE_UNKNOWN, /**< Internal automatic detect. */
     UCG_MEM_TYPE_LAST = UCG_MEM_TYPE_UNKNOWN,
 } ucg_mem_type_t;
@@ -234,7 +234,7 @@ typedef enum {
  * @ingroup UCG_DT
  * @brief Data types
  * @note This is a union set of data types supported by all platforms which means
- * some data types are not available with a particular memory type, In the unavailable
+ * some data types are not available with a particular memory type. In the unavailable
  * case, UCG will return UCG_ERR_UNSUPPORTED.
  */
 typedef enum {
@@ -323,7 +323,7 @@ typedef enum {
  */
 typedef enum {
     UCG_REQUEST_INFO_FIELD_MEM_TYPE = UCG_BIT(0), /**< Memory type. */
-    UCG_REQUEST_INFO_FIELD_CB = UCG_BIT(0), /**< Request completion callback. */
+    UCG_REQUEST_INFO_FIELD_CB = UCG_BIT(1), /**< Request completion callback. */
 } ucg_request_info_field_t;
 
 /**
@@ -336,7 +336,7 @@ typedef struct {
     uint32_t size;
     union {
         /* UCG_RANK_MAP_TYPE_ARRAY */
-        ucg_rank_t *array
+        ucg_rank_t *array;
         /* UCG_RANK_MAP_TYPE_STRIDE */
         struct {
             ucg_rank_t start;
@@ -376,7 +376,7 @@ typedef struct {
 
     /**
      * ID of the socket where the process resides.
-     * Should start from 0 to the maximum number of sockets in net.
+     * Should start from 0 to the maximum number of sockets in node.
      */
     int16_t socket_id;
 } ucg_location_t;
@@ -393,7 +393,7 @@ typedef struct {
     uint64_t field_mask;
 
      /**Memory type. Corresponding bit is UCG_MEM_ATTR_FIELD_MEM_TYPE */
-    ucg_memtype_t mem_type;
+    ucg_mem_type_t mem_type;
 } ucg_mem_attr_t;
 
 /**
@@ -416,8 +416,8 @@ typedef struct {
      * @param [in]     offset       Offset of the buffer passed to start_pack
      * @param [out]    dst          Destination buffer to save packed data
      * @param [inout]  length       Value-result argument. UCG will initialize it
-                                    to cantain the dst buffer length in bytes; on
-                                    return it need contain the actual packed size
+     *                              to cantain the dst buffer length in bytes; on
+     *                              return it need contain the actual packed size
      * @return UCG_OK for success, otherwise error.
      */
     ucg_status_t (*pack)(void *state, uint64_t offset, void *dst, uint64_t *length);
@@ -437,14 +437,14 @@ typedef struct {
      * @param [in]     offset       Offset of the buffer passed to start_unpack
      * @param [out]    src          Source buffer which contains packed data
      * @param [inout]  length       Value-result argument. UCG will initialize it
-                                    to cantain the src buffer length in bytes; on
-                                    return it need contain the actual unpacked size
+     *                              to cantain the src buffer length in bytes; on
+     *                              return it need contain the actual unpacked size
      * @return UCG_OK for success, otherwise error.
      */
     ucg_status_t (*unpack)(void *state, uint64_t offset, const void *src, uint64_t *length);
 
     /**
-     * @brief Destory state
+     * @brief Destroy state
      */
     void (*finish)(void *state);
 } ucg_dt_convertor_t;
@@ -458,7 +458,7 @@ typedef struct {
  * - @ref ucg_dt_params_t::size
  * - @ref ucg_dt_params_t::extent
  *
- * If extent == size is true, user_dt is contiguous, Otherwise non-contiguous.
+ * If extent == size is true, user_dt is contiguous. Otherwise non-contiguous.
  * And if user_dt is non-contiguous, the following fields are needed too
  * - @ref ucg_dt_parmas_t::pack
  * - @ref ucg_dt_parmas_t::unpack
@@ -476,7 +476,7 @@ typedef struct {
     void *user_dt;
     /** Size of user-defined datatype if it's put on a contiguous memory. */
     uint32_t size;
-    /** Extent of the user-defind datatype. */
+    /** Extent of the user-defined datatype. */
     uint32_t extent;
     /** User-defined datatype convertor. */
     ucg_dt_convertor_t conv;
@@ -536,11 +536,11 @@ typedef ucg_status_t (*ucg_oob_allgather_cb_t)(const void *sendbuf,
 
 /**
  * @ingroup UCG_CONTEXT
- * @brief OOB communication group.
+ * @brief OOB communication group
  */
 typedef struct {
     /**
-     * The datatype of element in the sendbuf and recv bug can treated as char.
+     * The datatype of elements in the sendbuf and recvbuf can treated as char.
      */
     ucg_oob_allgather_cb_t allgather;
 
@@ -568,7 +568,7 @@ typedef ucg_status_t (*ucg_get_location_cb_t)(ucg_rank_t rank,
  * @ingroup UCG_CONTEXT
  * @brief Tuning parameters for UCG context.
  *
- * The structure defines the parameters that are used for intializeing the UCG
+ * The structure defines the parameters that are used for intializing the UCG
  * context.
  */
 typedef struct {
@@ -581,7 +581,7 @@ typedef struct {
 
     /**
      * OOB group is used to exchange informations during initializing the UCG
-     * context. This group should be consisted of all job process. For MPI,
+     * context. This group should be consisted of all job processes. For MPI,
      * this can be MPI_COMM_WORLD.
      * This field must be specified. Corresponding bit is UCG_PARAMS_FIELD_OOB_GROUP.
      */
@@ -589,14 +589,14 @@ typedef struct {
 
     /**
      * Callback to get location of the process with oob_group.rank.
-     * If this field is not specified, location will be obtained by UCG ieself
+     * If this field is not specified, location will be obtained by UCG itself
      * that is less efficient when the user has obtained the location.
      */
     ucg_get_location_cb_t get_location;
 
     /**
      * Specifies whether the context is used in a single-thread or multi-thread
-     * enviroment.
+     * environment.
      * This is an optional field, default value is UCG_THREAD_MODE_SINGLE.
      * UCG_THREAD_MODE_MULTI is valid when UCG is built with UCG_ENABLE_MT.
      */
@@ -607,7 +607,7 @@ typedef struct {
  * @ingroup UCG_GROUP
  * @brief Tuning parameters for UCG group.
  *
- * The structure defines the parameters that are used for intializeing the UCG
+ * The structure defines the parameters that are used for creating the UCG
  * group.
  */
 typedef struct {
@@ -622,7 +622,7 @@ typedef struct {
     /**
      * The field provides a integer identifying the group. The group id must be
      * unique in the job when group is active.
-     * This field must be specified. Corresponding bit is UCG_GROUP_PARAMS_FIELD_ID.
+     * This field must be specified. Corresponding bit is UCG_GROUP_PARAMS_FIELD_ID
      */
     uint32_t id;
 
@@ -661,7 +661,7 @@ typedef struct {
  */
 typedef struct {
     /**
-     * @brief Callback to get the ucp_ep
+     * @brief Callback to get the ucp_ep.
      * @param [in] oob_group     Communication group derived from ucg_group_params_t::oob_group::group
      * @param [in] rank          Rank in communication group derived from oob_group::myrank
      * @return Return ucp_ep. Use void* to hide specific resources.
@@ -697,7 +697,7 @@ typedef struct {
     uint64_t field_mask;
 
     /**
-     * The field represents the oob resouces used by UCG.
+     * The field represents the oob resources used by UCG.
      * This field is optional. Corresponding bit is UCG_GROUP_PARAMS_FIELD_OOB_RESOURCE.
      */
     ucg_oob_resource_t oob_resource;
@@ -717,7 +717,7 @@ ucg_status_t ucg_global_init(const ucg_global_params_t *params);
 
 /**
  * @ingroup UCG_GLOBAL
- * @brief Cleanup global resouces.
+ * @brief Cleanup global resources.
  *
  * This routine is invoked when the UCG is no longer used.
  */
@@ -750,14 +750,14 @@ typedef struct {
 
     /**
      * Indicates the memory type of buffer used by request. This will determine
-     * the plan component used for request.
+     * the plan component used for the request.
      * For barrier request, user must specify an explicit memory type, can not
      * be UCG_MEM_TYPE_UNKNOWN.
      */
     ucg_mem_type_t mem_type;
 
     /**
-     * Specify the request completion callback, For MPI, usually only non-blocking
+     * Specify the request completion callback. For MPI, usually only non-blocking
      * collective operations need to set this field.
      */
     ucg_request_complete_cb_t complete_cb;
@@ -823,7 +823,7 @@ ucg_status_t ucg_op_create(const ucg_op_params_t *params, ucg_op_h *op);
  * @ingroup UCG_DT
  * @brief Destroy a UCG reduction operation.
  *
- * @param [in] op       Op crated by @ref ucg_op_create
+ * @param [in] op       Op created by @ref ucg_op_create
  */
 void ucg_op_destroy(ucg_op_h op);
 
@@ -837,15 +837,15 @@ void ucg_op_destroy(ucg_op_h op);
  * a proper time to destroy the ucg op created by @ref ucg_op_create.
  *
  * User can allocate the space(stack or heap) of ucg_op_h based on UCG_OP_SIZE
- * and initialize the space by calling this routine. when the initialized op is
+ * and initialize the space by calling this routine. When the initialized op is
  * passed to UCG(e.g. invoking @ref ucg_request_allreduce_init), its value will
- * be saved which means user can release the space of ucg_op_h after the fucntion
+ * be saved which means user can release the space of ucg_op_h after the function
  * returned. However, if its type is UCG_OP_TYPE_USER, the params->user_op cannot
  * be released before the request is completed.
  *
- * @note Try not to use this toutine.
+ * @note Try not to use this routine.
  *
- * @param [in]  params  Parameters of initializeing op.
+ * @param [in]  params  Parameters of initializing op.
  * @param [out] op      Initialized op.
  * @retval UCG_OK Success.
  * @retval Otherwise Failure.
@@ -861,7 +861,7 @@ ucg_status_t ucg_op_init(const ucg_op_params_t *params, ucg_op_h op, uint32_t op
  * configuration is used to initialize a UCG context.
  * The format of runtime environment is "${USER_ENV_PREFIX}_UCG_${CONFIG_NAME}".
  *
- * @param [in]  env_prefix  User defined prefix of environment. Ignore if MULL.
+ * @param [in]  env_prefix  User defined prefix of environment. Ignore if NULL.
  * @param [in]  filename    If non-NULL, read configuration from the file.
  * @param [out] config      Configuration descriptor.
  * @retval UCG_OK Success.
@@ -909,7 +909,7 @@ void ucg_get_version(uint32_t *major_version, uint32_t *minor_version,
  * @ingroup UCG_CONTEXT
  * @brief Get UCG library version as a string.
  *
- * This routine returns the UCG library version as a string which consists of
+ * This routine returns the UCG library version as a string which consists of:
  * "major.minor.patch".
  */
 const char *ucg_get_version_string(void);
@@ -921,14 +921,14 @@ const char *ucg_get_version_string(void);
  *
  * This is an internal routine used to check compatibility with a particular
  * API version. @ref ucg_init should be used to create UCG context.
- * 
+ *
  * @ref ucg_cleanup "ucg_cleanup()" routine.
  *
  * @param [in]  major_version   Library major version.
  * @param [in]  minor_version   Library minor version.
  * @param [in]  params          User defined parameters for the UCG context.
  * @param [in]  config          UCG configuration allocated through
-                                @ref ucg_config_read "ucg_config_read()" routine.
+ *                              @ref ucg_config_read "ucg_config_read()" routine.
  * @param [out] context         Initialized UCG context.
  * @retval UCG_OK Success.
  * @retval Otherwise Failure.
@@ -942,14 +942,14 @@ ucg_status_t ucg_init_version(uint32_t major_version, uint32_t minor_version,
  * @ingroup UCG_CONTEXT
  * @brief Initialize UCG Application Context.
  *
- * UCG Application Context is a concepet for managing resources and configurations.
- * Resource isolation is archived by seperating contexts.
- * 
+ * UCG Application Context is a concept for managing resources and configurations.
+ * Resource isolation is achieved by separating contexts.
+ *
  * @ref ucg_cleanup "ucg_cleanup()" routine.
  *
  * @param [in]  params          User defined parameters for the UCG context.
  * @param [in]  config          UCG configuration allocated through
-                                @ref ucg_config_read "ucg_config_read()" routine.
+ *                              @ref ucg_config_read "ucg_config_read()" routine.
  * @param [out] context         Initialized UCG context.
  * @retval UCG_OK Success.
  * @retval Otherwise Failure.
@@ -974,7 +974,7 @@ int ucg_progress(ucg_context_h context);
  * @ingroup UCG_CONTEXT
  * @brief Cleanup UCG context.
  *
- * Before invoking this routine, ensure that there ara no pending requests and
+ * Before invoking this routine, ensure that there are no pending requests and
  * all group are destroyed. Once invoking this routine, the context can not be
  * used anymore.
  *
@@ -988,12 +988,12 @@ void ucg_cleanup(ucg_context_h context);
  *
  * UCG Communication Group consists of a set of processes that perform collective
  * operations. Each process has a UCG Rank(derivative of MPI rank semantics).
- * 
- * @ref ucg_group_destroy "ucg_group_destroy()" routine.
+ *
+ * @ref ucg_group_destroy "ucg_group_destroy" routine.
  *
  * @param [in]  context     UCG context.
  * @param [in]  params      User defined parameters for the UCG group.
- * @param [out] context     Communication group.
+ * @param [out] group       Communication group.
  * @retval UCG_OK Success.
  * @retval Otherwise Failure.
  */
@@ -1065,8 +1065,8 @@ ucg_status_t ucg_request_allreduce_init(const void *sendbuf, void *recvbuf,
  * @ingroup UCG_REQUEST
  * @brief Create a persistent barrier request.
  *
- * The request blocks the caller untile all group members have called it. The
- * call returns at any process only after all group members have enterd the call.
+ * The request blocks the caller until all group members have called it. The
+ * call returns at any process only after all group members have entered the call.
  *
  * @note The request supports "create once and start many times".
  *
@@ -1084,7 +1084,7 @@ ucg_status_t ucg_request_barrier_init(ucg_group_h group,
  * @ingroup UCG_REQUEST
  * @brief Create a persistent alltoallv request.
  *
- * Each process sends distinct data to each of receivers. The j-th block sent
+ * Each process sends distinct data to each of the receivers. The j-th block sent
  * from process i is received by process j and is placed in the i-th block of recvbuf.
  *
  * @note The request supports "create once and start many times".
@@ -1177,18 +1177,18 @@ ucg_status_t ucg_request_scatterv_init(const void *sendbuf, const int32_t *sendc
  */
 ucg_status_t ucg_request_allgatherv_init(const void *sendbuf, int sendcount,
                                          ucg_dt_h sendtype, void *recvbuf,
-                                         const int32_t *recvcounts, const int32_t *displs, 
+                                         const int32_t *recvcounts, const int32_t *displs,
                                          ucg_dt_h recvtype, ucg_group_h group,
                                          const ucg_request_info_t *info,
                                          ucg_request_h *request);
 /**
  * @ingroup UCG_REQUEST
- * @brief Start the request
+ * @brief Start the request.
  *
- * If start successfully, user need to invoke @ref ucg_request_test to process
+ * If start successfully, user need to invoke @ref ucg_request_test to progress
  * the request. If the request is completed, user can start the request again.
  *
- * @note the request may be completed directly in this routine, which means when
+ * @note The request may be completed directly in this routine, which means when
  * the request has a complete_cb, it will be invoked here.
  * @note The same collection op must be performed in the same time sequence in
  * different processes. Otherwise, the collection op requests of different processes
@@ -1196,7 +1196,7 @@ ucg_status_t ucg_request_allgatherv_init(const void *sendbuf, int sendcount,
  *
  * @param [in] request      Collective request
  * @retval UCG_OK Start successfully, next step is to invoke @ref ucg_request_test
- *         to check status and progress the request. 
+ *         to check status and progress the request.
  * @retval UCG_INPROGRESS The request is already started, wrong way to use
  * @retval Otherwise Failed to start the request. The request can only be cleanup
  *         through @ref ucg_request_cleanup
@@ -1205,7 +1205,7 @@ ucg_status_t ucg_request_start(ucg_request_h request);
 
 /**
  * @ingroup UCG_REQUEST
- * @brief Test for the completion of request.
+ * @brief Test for the completion of the request.
  *
  * @param [in] request      Collective request
  * @retval UCG_OK The request is completed successfully, can be cleanup or start
@@ -1222,7 +1222,7 @@ ucg_status_t ucg_request_test(ucg_request_h request);
  *
  * This routine is normally used to free inactive persistent requests created
  * with @ref ucg_request_bcast_init and friends. It is also permissible to free
- * an active request (cancel semantics). Once freed, the requesst can no longer
+ * an active request (cancel semantics). Once freed, the request can no longer
  * be used.
  *
  * @param [in] request      Collective request

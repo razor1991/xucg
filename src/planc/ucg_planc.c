@@ -1,7 +1,7 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
-#define _GUN_SOURCE // For dladdr()
+#define _GNU_SOURCE // For dladdr()
 
 #include "ucg_planc.h"
 #include "util/ucg_parser.h"
@@ -33,6 +33,7 @@ static ucg_config_field_t ucg_planc_config_table[] = {
 };
 UCG_CONFIG_REGISTER_TABLE(ucg_planc_config_table, "UCG PlanC", NULL,
                           ucg_planc_config_t, &ucg_config_global_list);
+
 
 static char *ucg_planc_get_default_path()
 {

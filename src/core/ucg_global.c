@@ -1,12 +1,12 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_global.h"
 #include "ucg_dt.h"
 
 #include "planc/ucg_planc.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 #include "util/ucg_parser.h"
 
 #include <pthread.h>
@@ -27,7 +27,7 @@ static ucg_config_field_t ucg_global_config_table[] = {
     {NULL},
 };
 UCG_CONFIG_REGISTER_TABLE(ucg_global_config_table, "UCG global", NULL,
-                          ucg_global_config_t, &ucg_global_config_list);
+                          ucg_global_config_t, &ucg_config_global_list);
 
 static int initialized = 0;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;

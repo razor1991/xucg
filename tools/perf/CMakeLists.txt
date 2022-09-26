@@ -7,5 +7,5 @@ file(GLOB SRCS ./*.c)
 add_executable(ucg_perf ${SRCS})
 
 # Install
-install(TARGES ucg_perf
+install(TARGETS ucg_perf
         RUNTIME DESTINATION ${UCG_INSTALL_BINDIR})

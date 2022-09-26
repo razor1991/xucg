@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_request.h"
@@ -8,8 +8,8 @@
 #include "ucg_dt.h"
 
 #include "util/ucg_log.h"
-#include "util/ucg_hepler.h"
-#include "util/ucg_progile.h"
+#include "util/ucg_helper.h"
+#include "util/ucg_profile.h"
 #include <string.h>
 
 
@@ -27,7 +27,7 @@
         if (!(info->field_mask & UCG_REQUEST_INFO_FIELD_MEM_TYPE) || \
             info->mem_type == UCG_MEM_TYPE_UNKNOWN) { \
             ucg_mem_type_t mem_type; \
-            const void *buffer[] = {__VA_ARGS__}; \
+            const void *buffers[] = {__VA_ARGS__}; \
             ucg_status_t status = ucg_request_check_mem_type(buffers, UCG_NUM_ARGS(__VA_ARGS__), &mem_type); \
             if (status != UCG_OK) { \
                 return status; \
@@ -102,7 +102,7 @@ static ucg_status_t ucg_request_ctor(ucg_request_t *self, const ucg_coll_args_t 
     self->id = UCG_GROUP_INVALID_REQ_ID;
     /** trade-off, get more information from comments of @ref ucg_op_init */
     if (args->type == UCG_COLL_TYPE_ALLREDUCE) {
-        if (!ucg_op_is_predefined(args->allreduce.op)) {
+        if (!ucg_op_is_persistent(args->allreduce.op)) {
             self->args.allreduce.op = &self->args.allreduce.gop.super;
             ucg_op_copy(self->args.allreduce.op, args->allreduce.op);
         }
@@ -161,7 +161,7 @@ ucg_status_t ucg_request_bcast_init(void *buffer, int32_t count, ucg_dt_t *dt,
     };
     UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info, buffer);
 
-    return ucg_request_info(group, &args, request);
+    return ucg_request_init(group, &args, request);
 }
 
 ucg_status_t ucg_request_allreduce_init(const void *sendbuf, void *recvbuf,
@@ -170,7 +170,7 @@ ucg_status_t ucg_request_allreduce_init(const void *sendbuf, void *recvbuf,
                                         const ucg_request_info_t *info,
                                         ucg_request_h *request)
 {
-    UCG_CHECK_NULL_INVALID(buffer, dt, group, request);
+    UCG_CHECK_NULL_INVALID(sendbuf, recvbuf, dt, op, group, request);
 
     ucg_coll_args_t args = {
         .type = UCG_COLL_TYPE_ALLREDUCE,
@@ -182,7 +182,7 @@ ucg_status_t ucg_request_allreduce_init(const void *sendbuf, void *recvbuf,
     };
     UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info, sendbuf, recvbuf);
 
-    return ucg_request_info(group, &args, request);
+    return ucg_request_init(group, &args, request);
 }
 
 ucg_status_t ucg_request_barrier_init(ucg_group_h group,
@@ -196,7 +196,7 @@ ucg_status_t ucg_request_barrier_init(ucg_group_h group,
     };
     UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info);
 
-    return ucg_request_info(group, &args, request);
+    return ucg_request_init(group, &args, request);
 }
 
 ucg_status_t ucg_request_alltoallv_init(const void *sendbuf, const int32_t sendcounts[],
@@ -222,7 +222,7 @@ ucg_status_t ucg_request_alltoallv_init(const void *sendbuf, const int32_t sendc
     };
     UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info, sendbuf, recvbuf);
 
-    return ucg_request_info(group, &args, request);
+    return ucg_request_init(group, &args, request);
 }
 
 ucg_status_t ucg_request_scatterv_init(const void *sendbuf, const int32_t *sendcounts,
@@ -252,6 +252,7 @@ ucg_status_t ucg_request_scatterv_init(const void *sendbuf, const int32_t *sendc
         .scatterv.recvtype = recvtype,
         .scatterv.root = root,
     };
+
     if (group->myrank == root) {
         if (recvbuf == UCG_IN_PLACE) {
             UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info, sendbuf);
@@ -262,7 +263,7 @@ ucg_status_t ucg_request_scatterv_init(const void *sendbuf, const int32_t *sendc
         UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info, recvbuf);
     }
 
-    return ucg_request_info(group, &args, request);
+    return ucg_request_init(group, &args, request);
 }
 
 ucg_status_t ucg_request_gatherv_init(const void *sendbuf, const int32_t sendcount,
@@ -292,8 +293,9 @@ ucg_status_t ucg_request_gatherv_init(const void *sendbuf, const int32_t sendcou
         .gatherv.recvtype = recvtype,
         .gatherv.root = root,
     };
+
     if (group->myrank == root) {
-        if (recvbuf == UCG_IN_PLACE) {
+        if (sendbuf == UCG_IN_PLACE) {
             UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info, recvbuf);
         } else {
             UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info, sendbuf, recvbuf);
@@ -302,17 +304,17 @@ ucg_status_t ucg_request_gatherv_init(const void *sendbuf, const int32_t sendcou
         UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info, sendbuf);
     }
 
-    return ucg_request_info(group, &args, request);
+    return ucg_request_init(group, &args, request);
 }
 
-ucg_status_t ucg_request_allgatherv_init(const void *sendbuf, const int32_t sendcount,
+ucg_status_t ucg_request_allgatherv_init(const void *sendbuf, int sendcount,
                                          ucg_dt_t *sendtype, void *recvbuf,
-                                         const int* recvcounts, const int32_t *displs,
+                                         const int *recvcounts, const int *displs,
                                          ucg_dt_t *recvtype, ucg_group_h group,
                                          const ucg_request_info_t *info,
                                          ucg_request_h *request)
 {
-    UCG_CHECK_NULL_INVALID(sendbuf, sendtype, recvbuf, displs,
+    UCG_CHECK_NULL_INVALID(sendbuf, sendtype, recvbuf, recvcounts, displs,
                            recvtype, group, request);
 
     ucg_coll_args_t args = {
@@ -332,7 +334,7 @@ ucg_status_t ucg_request_allgatherv_init(const void *sendbuf, const int32_t send
         UCG_REQUEST_APPLY_INFO_RETURN(&args.info, info, sendbuf, recvbuf);
     }
 
-    return ucg_request_info(group, &args, request);
+    return ucg_request_init(group, &args, request);
 }
 
 UCG_PROFILE_FUNC(ucg_status_t, ucg_request_start, (request), ucg_request_h request)
@@ -370,9 +372,7 @@ UCG_PROFILE_FUNC(ucg_status_t, ucg_request_test, (request), ucg_request_h reques
     UCG_CHECK_NULL_INVALID(request);
 
     ucg_context_lock(request->group->context);
-
     if (ucg_unlikely(request->status != UCG_INPROGRESS)) {
-        ucg_error("Attempt to cleanup a in-progress request");
         ucg_context_unlock(request->group->context);
         return request->status;
     }
@@ -425,6 +425,7 @@ ucg_status_t ucg_request_msg_size(const ucg_coll_args_t *args, const uint32_t si
             *msize = 0;
             break;
         case UCG_COLL_TYPE_ALLGATHERV:
+            /* The message size of each process is different, so using 0. */
             dt_size = (args->allgatherv.sendbuf != UCG_IN_PLACE) ?
                       (uint64_t)ucg_dt_size(args->allgatherv.sendtype) :
                       (uint64_t)ucg_dt_size(args->allgatherv.recvtype);

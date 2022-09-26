@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_LIST_H_
@@ -10,7 +10,7 @@
 /* use the UCS link type */
 #define ucg_list_link_t     ucs_list_link_t
 
-#define ucg_list_head_list(_head)       ucs_list_head_list(_head)
+#define ucg_list_head_init(_head)       ucs_list_head_init(_head)
 #define ucg_list_add_tail(_head, _item) ucs_list_add_tail(_head, _item)
 #define ucg_list_del(_elem)             ucs_list_del(_elem)
 #define ucg_list_is_empty(_head)        ucs_list_is_empty(_head)

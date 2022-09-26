@@ -1,12 +1,12 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_PARSER_H_
 #define UCG_PARSER_H_
 
 #include <stdio.h>
-#include "ucg_hepler.h"
+#include "ucg_helper.h"
 #include "ucg_list.h"
 
 #include <ucs/sys/preprocessor.h>
@@ -25,12 +25,14 @@
 #define UCG_CONFIG_TYPE_INT             UCS_CONFIG_TYPE_INT
 #define UCG_CONFIG_TYPE_UINT            UCS_CONFIG_TYPE_UINT
 #define UCG_CONFIG_TYPE_STRING_ARRAY    UCS_CONFIG_TYPE_STRING_ARRAY
+#define UCG_CONFIG_TYPE_ARRAY           UCS_CONFIG_TYPE_ARRAY
 #define UCG_CONFIG_TYPE_TABLE           UCS_CONFIG_TYPE_TABLE
 #define UCG_CONFIG_TYPE_ULUNITS         UCS_CONFIG_TYPE_ULUNITS
 #define UCG_CONFIG_TYPE_ENUM            UCS_CONFIG_TYPE_ENUM
 #define UCG_CONFIG_TYPE_MEMUNITS        UCS_CONFIG_TYPE_MEMUNITS
 #define UCG_ULUNITS_AUTO                UCS_ULUNITS_AUTO
 #define UCG_CONFIG_TYPE_BITMAP          UCS_CONFIG_TYPE_BITMAP
+#define UCG_CONFIG_TYPE_MEMUNITS        UCS_CONFIG_TYPE_MEMUNITS
 #define UCG_CONFIG_TYPE_BOOL            UCS_CONFIG_TYPE_BOOL
 #define UCG_CONFIG_TYPE_TERNARY         UCS_CONFIG_TYPE_TERNARY
 
@@ -41,6 +43,13 @@ ucg_config_parser_fill_opts(void *opts, ucg_config_field_t *fields,
 {
     ucs_status_t status = ucs_config_parser_fill_opts(opts, fields, env_prefix,
                                                       table_prefix, ignore_errors);
+    return ucg_status_s2g(status);
+}
+
+static inline ucg_status_t
+ucg_config_parser_clone_opts(const void *src, void *dst, ucg_config_field_t *fields)
+{
+    ucs_status_t status = ucs_config_parser_clone_opts(src, dst, fields);
     return ucg_status_s2g(status);
 }
 
@@ -62,7 +71,7 @@ typedef enum {
     UCG_CONFIG_PRINT_CONFIG = UCG_BIT(0),
     UCG_CONFIG_PRINT_HEADER = UCG_BIT(1),
     UCG_CONFIG_PRINT_DOC    = UCG_BIT(2),
-    UCG_CONFIG_PRINT_HIDDEN = UCG_BIT(3),
+    UCG_CONFIG_PRINT_HIDDEN = UCG_BIT(3)
 } ucg_config_print_flags_t;
 
 typedef enum ucg_ternary_auto_value {
@@ -73,6 +82,7 @@ typedef enum ucg_ternary_auto_value {
     UCG_TERNARY_LAST
 } ucg_ternary_auto_value_t;
 
+/** @brief Transfer the ucg's flags to ucs's flags */
 static inline ucs_config_print_flags_t ucg_print_flags_g2s(ucg_config_print_flags_t flags)
 {
     int ucs_flags = 0;

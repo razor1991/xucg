@@ -1,5 +1,5 @@
 #
-# Copyright (C) Huawei Technologies Co., Ltd. 2020-2022. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
 #
 
 # Generate version
@@ -8,7 +8,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/ucg/api/ucg_version.h.in"
 
 option(UCG_ENABLE_PROFILE "Enable profiling" OFF)
 option(UCG_ENABLE_GCOV "Enable code coverage" OFF)
-option(UCG_ENABLE_CHECK_PARAMS "Enable checking parameters" ON)
+option(UCG_ENABLE_CHECK_PARAMS "Enable checking parameter" ON)
 option(UCG_ENABLE_MT "Enable thread-safe support" OFF)
 
 add_compile_options(-fPIC)
@@ -46,16 +46,16 @@ if (UCG_ENABLE_MT MATCHES "ON")
 endif()
 
 # Offering to underlying module to set link option
-set(UCG_LINK_FLAGS "" CACHE INTERNAL "UCG link options")
+set(UCG_LINKER_FLAGS "" CACHE INTERNAL "UCG link options")
 
 add_subdirectory(core)
 add_subdirectory(planc)
 add_subdirectory(util)
 
 # According to CMP0004, strip the trailing whitespace
-string(STRIP ${UCG_LINK_FLAGS} UCG_LINK_FLAGS)
+string(STRIP ${UCG_LINKER_FLAGS} UCG_LINKER_FLAGS)
 
-# Build linucg.so
+# Build libucg.so
 add_library(ucg SHARED ucg/api/ucg.h)
 set_target_properties(ucg PROPERTIES LINKER_LANGUAGE C)
 set_target_properties(ucg
@@ -66,13 +66,14 @@ set_target_properties(ucg
 set(UCG_PUBLIC_HEADER
     ${CMAKE_CURRENT_SOURCE_DIR}/ucg/api/ucg.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ucg/api/ucg_version.h)
-set_target_properties(ucg PRIVATE
+set_target_properties(ucg PROPERTIES PUBLIC_HEADER "${UCG_PUBLIC_HEADER}")
+target_link_libraries(ucg PRIVATE
                       "-Wl,--whole-archive"
                       ucg_core
                       ucg_planc
                       ucg_util
                       "-Wl,--no-whole-archive"
-                      ${UCG_LINK_FLAGS})
+                      ${UCG_LINKER_FLAGS})
 
 # Install
 install(TARGETS ucg

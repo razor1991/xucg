@@ -1,11 +1,11 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_component.h"
 
 #include "util/ucg_log.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 #include "util/ucg_malloc.h"
 
 #include <libgen.h>
@@ -32,7 +32,7 @@ static ucg_status_t ucg_components_load_one(const char *lib_path,
     /* skip prefix */
     char *libname = basename(lib_path_dup) + UCG_PATTERN_PREFIX_LEN;
     /* ingore suffix*/
-    int objname_len = strlen(libname) + UCG_PATTERN_SUFFIX_LEN;
+    int objname_len = strlen(libname) - UCG_PATTERN_SUFFIX_LEN;
     char objname[UCG_COMPONENT_OBJNAME_MAX_LEN + 1] = {0};
     if (objname_len > UCG_COMPONENT_OBJNAME_MAX_LEN) {
         ucg_error("Length of object name exceed %d", UCG_COMPONENT_OBJNAME_MAX_LEN);
@@ -69,7 +69,7 @@ static ucg_status_t ucg_components_check_pattern(const char *pattern)
     const char *prefix = pattern;
     const char *suffix = pattern + strlen(pattern) - UCG_PATTERN_SUFFIX_LEN;
     if (strncmp(prefix, UCG_PATTERN_PREFIX, UCG_PATTERN_PREFIX_LEN) != 0
-        || strncmp(suffix), UCG_PATTERN_SUFFIX, UCG_PATTERN_SUFFIX_LEN) != 0) {
+        || strncmp(suffix, UCG_PATTERN_SUFFIX, UCG_PATTERN_SUFFIX_LEN) != 0) {
         return UCG_ERR_INVALID_PARAM;
     }
     return UCG_OK;
@@ -112,7 +112,7 @@ ucg_status_t ucg_components_load(const char *path, const char *pattern,
 
     components->num = 0;
     for (int i = 0; i < globbuf.gl_pathc; ++i) {
-        status = ucg_components_load_one(globbuf.gl_pathc[i], &comps[components->num]);
+        status = ucg_components_load_one(globbuf.gl_pathv[i], &comps[components->num]);
         if (status != UCG_OK) {
             continue;
         }
@@ -141,7 +141,7 @@ void ucg_components_unload(ucg_components_t *components)
         return;
     }
 
-    ucg_components_t **comps = components->components;
+    ucg_component_t **comps = components->components;
     int num = components->num;
     for (int i = 0; i < num; ++i) {
         dlclose(comps[i]->handle);

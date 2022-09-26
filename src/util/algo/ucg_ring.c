@@ -1,9 +1,9 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_ring.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 
 void ucg_algo_ring_iter_init(ucg_algo_ring_iter_t *iter, int size, ucg_rank_t myrank)
 {

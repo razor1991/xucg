@@ -1,6 +1,6 @@
-#
-# Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
-#
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ */
 #include "ucg_info.h"
 
 #include "core/ucg_global.h"
@@ -21,23 +21,23 @@ static void usage()
     return;
 }
 
-int main(int args, char **argv)
+int main(int argc, char **argv)
 {
     uint64_t print_flags = 0;
 
     int opt;
     while ((opt = getopt(argc, argv, "vtpc")) != -1) {
         switch (opt) {
-            case "v":
+            case 'v':
                 print_flags |= PRINT_VERSION;
                 break;
-            case "t":
+            case 't':
                 print_flags |= PRINT_TYPES;
                 break;
-            case "p":
+            case 'p':
                 print_flags |= PRINT_PLANS;
                 break;
-            case "c":
+            case 'c':
                 print_flags |= PRINT_CONFIG;
                 break;
             default:
@@ -72,7 +72,7 @@ int main(int args, char **argv)
 
     if (print_flags & PRINT_CONFIG) {
         ucg_config_parser_print_all_opts(stdout, UCG_DEFAULT_ENV_PREFIX,
-                                         UCG_CONFIG_PRINT_CONFIG | UCX_CONFIG_PRINT_DOC,
+                                         UCG_CONFIG_PRINT_CONFIG | UCG_CONFIG_PRINT_DOC,
                                          &ucg_config_global_list);
     }
     ucg_global_cleanup();

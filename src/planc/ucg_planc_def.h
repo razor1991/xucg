@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_PLANC_DEF_H_
@@ -94,7 +94,7 @@ typedef void (*ucg_planc_config_release_func_t)(ucg_planc_config_h config);
 
 /**
  * @ingroup UCG_PLANC
- * @brief Function the initialize PlanC context.
+ * @brief Function that initialize PlanC context.
  */
 typedef ucg_status_t (*ucg_planc_context_init_func_t)(const ucg_planc_params_t *params,
                                                       const ucg_planc_config_h config,
@@ -102,13 +102,13 @@ typedef ucg_status_t (*ucg_planc_context_init_func_t)(const ucg_planc_params_t *
 
 /**
  * @ingroup UCG_PLANC
- * @brief Function the cleanup PlanC context.
+ * @brief Function that cleanup PlanC context.
  */
 typedef void (*ucg_planc_context_cleanup_func_t)(ucg_planc_context_h context);
 
 /**
  * @ingroup UCG_PLANC
- * @brief Function the query attributes of PlanC context.
+ * @brief Function that query attributes of PlanC context.
  */
 typedef ucg_status_t (*ucg_planc_context_query_func_t)(ucg_planc_context_h context,
                                                        ucg_planc_context_attr_t *attr);
@@ -123,9 +123,9 @@ typedef ucg_status_t (*ucg_planc_group_create_func_t)(ucg_planc_context_h contex
 
 /**
  * @ingroup UCG_PLANC
- * @brief Function that destory PlanC group.
+ * @brief Function that destroy PlanC group.
  */
-typedef ucg_status_t (*ucg_planc_group_destory_func_t)(ucg_planc_group_h planc_group);
+typedef void (*ucg_planc_group_destroy_func_t)(ucg_planc_group_h planc_group);
 
 /**
  * @ingroup UCG_PLANC

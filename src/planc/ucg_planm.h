@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_PLANM_H_
@@ -34,7 +34,7 @@ typedef ucg_planc_get_plans_func_t ucg_planm_get_plans_func_t;
 
 /**
  * @ingroup UCG_PLANM
- * @brief PlanM library naming format
+ * @brief PlanM library naming prefix format
  *
  * "*" represents any number of characters.
  */
@@ -45,13 +45,13 @@ typedef ucg_planc_get_plans_func_t ucg_planm_get_plans_func_t;
  * @brief Plan Module
  *
  * A plan is an abstraction of the steps to perform a collective operation. A
- * PlanM(short for plan component) contains plans for different scenarios.
+ * PlanM(short for plan module) contains plans for different scenarios.
  *
  * PlanM supports dynamic loading through inheriting @ref ucg_component_t. PlanM
  * is a subset of PlanC which provides interfaces to get a selector that contains
  * plans and selection policy.
  *
- * PlanM implementers should use @ref UCG_PLANC_OBJNAME to generate the name of
+ * PlanM implementers should use @ref UCG_PLANM_OBJNAME to generate the name of
  * derived object for proper loading.
  */
 typedef struct ucg_planm {
@@ -98,9 +98,9 @@ int32_t ucg_planm_count(ucg_components_t *ucg_planm);
  * @ingroup UCG_PLANM
  * @brief Get PlanM by index in a specific component.
  *
- * Use together with @ref ucg_planm_count to obtain all PlanM in a specific component.
+ * Used together with @ref ucg_planm_count to obtain all PlanM in a specific component.
  *
- * @param [out]   idx               Index, [0, ucg_planc_count)
+ * @param [out]   idx               Index, [0, ucg_planm_count)
  * @param [inout] ucg_planm         Plan modules.
  */
 ucg_planm_t* ucg_planm_get_by_idx(int32_t idx, ucg_components_t *ucg_planm);
@@ -113,4 +113,5 @@ ucg_planm_t* ucg_planm_get_by_idx(int32_t idx, ucg_components_t *ucg_planm);
  * @param [inout] ucg_planm         Plan modules.
  */
 ucg_planm_t* ucg_planm_get_by_name(const char *name, ucg_components_t *ucg_planm);
+
 #endif

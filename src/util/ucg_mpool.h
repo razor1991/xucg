@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_MPOOL_H_
@@ -28,7 +28,7 @@ typedef struct ucg_mpool_ops {
      *                          modify it to actual allocated size (will greater or equal to input)
      * @param [out]   pchunk    the chunk
      */
-    ucg_status (*chunk_alloc)(ucg_mpool_t *mp, size_t *psize, void **pchunk);
+    ucg_status_t (*chunk_alloc)(ucg_mpool_t *mp, size_t *psize, void **pchunk);
 
     /**
      * @brief Release the chunk to memory pool
@@ -56,6 +56,12 @@ typedef struct ucg_mpool_ops {
      * @param [out] obj         the object
      */
     void (*obj_cleanup)(ucg_mpool_t *mp, void *obj);
+} ucg_mpool_ops_t;
+
+struct ucg_mpool {
+    ucs_mpool_t super;          /**< UCS memory pool */
+    ucg_mpool_ops_t *ops;       /**< UCG mpool ops */
+    ucg_lock_t lock;
 };
 
 /**
@@ -66,11 +72,11 @@ typedef struct ucg_mpool_ops {
  * @param [in] elem_size        the size of an element alloc from mpool
  * @param [in] align_offset     offset in the element which should be aligned to the given boundary
  * @param [in] alignment        boundary to which align the given offset within the element
- * @param [in] elems_per_chunk  the max number of elements allocated from a single chunk.
+ * @param [in] elems_per_chunk  the max number of elements allocated from a single chunk
  * @param [in] max_elems        the max number of elements allocated from this mpool
  *                              UINT_MAX is for unlimited
  * @param [in] ops              the memory pool ops, if NULL will use the default mpool ops
- * @param [in] name             the name of this memory pool
+ * @param [in] name             the name of this mpool
  *
  * @return the status of init
  */
@@ -87,11 +93,11 @@ ucg_status_t ucg_mpool_init(ucg_mpool_t *mp, size_t priv_size,
  * @param [in] elem_size        the size of an element alloc from mpool
  * @param [in] align_offset     offset in the element which should be aligned to the given boundary
  * @param [in] alignment        boundary to which align the given offset within the element
- * @param [in] elems_per_chunk  the max number of elements allocated from a single chunk.
+ * @param [in] elems_per_chunk  the max number of elements allocated from a single chunk
  * @param [in] max_elems        the max number of elements allocated from this mpool
  *                              UINT_MAX is for unlimited
  * @param [in] ops              the memory pool ops, if NULL will use the default mpool ops
- * @param [in] name             the name of this memory pool
+ * @param [in] name             the name of this mpool
  *
  * @return the status of init
  */

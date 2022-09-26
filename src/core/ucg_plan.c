@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_plan.h"
@@ -44,7 +44,7 @@ static ucg_status_t ucg_plan_meta_op_progress(ucg_plan_op_t *ucg_op)
     ucg_plan_meta_op_t *meta_op = ucg_derived_of(ucg_op, ucg_plan_meta_op_t);
 
     int cur_op_idx = meta_op->n_completed_ops;
-    ucg_plan_meta_op_t *curr_op = meta_op->ops[cur_op_idx];
+    ucg_plan_op_t *curr_op = meta_op->ops[cur_op_idx];
 
     if (!meta_op->triggered) {
         /* To ensure that requests of multiple members in the same collection op
@@ -107,7 +107,7 @@ ucg_plan_meta_op_t *ucg_plan_meta_op_new(ucg_group_t *group,
 {
     UCG_CHECK_NULL(NULL, group);
 
-    ucg_plan_meta_op_t *meta_op = ucg_mpool_get(&group->contet->meta_op_mp);
+    ucg_plan_meta_op_t *meta_op = ucg_mpool_get(&group->context->meta_op_mp);
     if (meta_op == NULL) {
         goto err;
     }
@@ -165,7 +165,7 @@ static void ucg_plan_print(const ucg_plan_t *plan, FILE *stream)
 {
     if (plan->type == UCG_PLAN_TYPE_FIRST_CLASS) {
         fprintf(stream, "#\n");
-        fprintf(stram, "# first class plan\n");
+        fprintf(stream, "# first class plan\n");
     } else {
         fprintf(stream, "# fallback plan\n");
     }
@@ -173,10 +173,10 @@ static void ucg_plan_print(const ucg_plan_t *plan, FILE *stream)
     fprintf(stream, "#    domain    : %s\n", attr->domain);
     fprintf(stream, "#    id        : %d\n", attr->id);
     fprintf(stream, "#    name      : %s\n", attr->name);
-    fprintf(stream, "#    score     : %s\n", attr->score);
-    fprintf(stream, "#    range     : %s\n", attr->range.start, attr->range.end);
-    fprintf(stream, "#    group     : %s\n", attr->vgroup);
-    fprintf(stream, "#    prepare   : %s\n", attr->prepare);
+    fprintf(stream, "#    score     : %u\n", attr->score);
+    fprintf(stream, "#    range     : [%lu, %lu)\n", attr->range.start, attr->range.end);
+    fprintf(stream, "#    group     : %p\n", attr->vgroup);
+    fprintf(stream, "#    prepare   : %p\n", attr->prepare);
 
     if (plan->type == UCG_PLAN_TYPE_FIRST_CLASS) {
         fprintf(stream, "#   n_fallback : %lu\n",
@@ -207,7 +207,7 @@ static void ucg_plan_add_fallback(ucg_plan_t *plan, ucg_plan_t *plan_fb)
         ucg_plan_t *plan_fb_fb = NULL;
         ucg_plan_t *next_plan_fb_fb = NULL;
         ucg_list_for_each_safe(plan_fb_fb, next_plan_fb_fb, &plan_fb->fallback, fallback) {
-            ucg_list_del(plan_fb_fb->fallback);
+            ucg_list_del(&plan_fb_fb->fallback);
             ucg_plan_add_fallback(plan, plan_fb_fb);
         }
         plan_fb->type = UCG_PLAN_TYPE_FALLBACK;
@@ -248,6 +248,10 @@ static ucg_status_t ucg_plan_apply_attr(ucg_plan_t *plan, const ucg_plan_attr_t 
     return UCG_OK;
 
 err_free_name:
+    if (plan_attr->name != NULL) {
+        ucg_free((void*)plan_attr->name);
+    }
+err:
     return UCG_ERR_NO_MEMORY;
 }
 
@@ -274,7 +278,7 @@ static ucg_plan_t* ucg_plan_create(const ucg_plan_params_t *params)
     }
 
     plan->type = UCG_PLAN_TYPE_FIRST_CLASS;
-    ucg_list_head_list(&plan->fallback);
+    ucg_list_head_init(&plan->fallback);
 
     return plan;
 
@@ -283,7 +287,7 @@ err_free_plan:
     return NULL;
 }
 
-static void ucg_plan_destory(ucg_plan_t *plan)
+static void ucg_plan_destroy(ucg_plan_t *plan)
 {
     ucg_assert(plan != NULL);
 
@@ -291,7 +295,7 @@ static void ucg_plan_destory(ucg_plan_t *plan)
         ucg_list_link_t *head = &plan->fallback;
         while (!ucg_list_is_empty(head)) {
             ucg_plan_t *plan_fb = ucg_list_extract_head(head, ucg_plan_t, fallback);
-            ucg_plan_destory(plan_fb);
+            ucg_plan_destroy(plan_fb);
         }
     }
     ucg_plan_free_attr(plan);
@@ -317,7 +321,7 @@ static ucg_plan_t* ucg_plan_dup(const ucg_plan_t *plan)
 
     new_plan->type = plan->type;
     if (new_plan->type == UCG_PLAN_TYPE_FIRST_CLASS) {
-        ucg_list_head_list(&new_plan->fallback);
+        ucg_list_head_init(&new_plan->fallback);
         ucg_plan_t *plan_fb = NULL;
         ucg_list_for_each(plan_fb, &plan->fallback, fallback) {
             ucg_plan_t *new_plan_fb = ucg_plan_dup(plan_fb);
@@ -331,7 +335,7 @@ static ucg_plan_t* ucg_plan_dup(const ucg_plan_t *plan)
     return new_plan;
 
 err:
-    ucg_plan_destory(new_plan);
+    ucg_plan_destroy(new_plan);
     return NULL;
 }
 
@@ -359,7 +363,7 @@ static int ucg_plan_need_split(ucg_plan_t *plan1,
  * and the range of the new one is [middle, end). If the plan is the first class,
  * its fallback plans will also be splitted.
  */
-static ucg_plan_t* ucg+plan_split(ucg_plan_t *plan, uint64_t middle)
+static ucg_plan_t* ucg_plan_split(ucg_plan_t *plan, uint64_t middle)
 {
     ucg_plan_t *new_plan = ucg_plan_dup(plan);
     if (new_plan == NULL) {
@@ -418,7 +422,7 @@ static int ucg_plan_is_compactible(const ucg_plan_t *plan1, const ucg_plan_t *pl
         if (!ucg_plan_is_compactible(plan1_fb, plan2_fb)) {
             return 0;
         }
-        plan2_fb = ucg_list_head(&plan2_fb->fallback, ucg_plan_t, fallback);
+        plan2_fb = ucg_list_next(&plan2_fb->fallback, ucg_plan_t, fallback);
     }
     return 1;
 }
@@ -433,8 +437,8 @@ static void ucg_plan_compact(ucg_plan_t *plan1, const ucg_plan_t *plan2)
 
         ucg_plan_t *plan1_fb = NULL;
         ucg_plan_t *plan2_fb = ucg_list_head(&plan2->fallback, ucg_plan_t, fallback);
-        ucg_list_for_each(plan1_fb, &plan2->fallback, fallback) {
-            plan1_fb->attr.range.end == plan2_fb->attr.range.end;
+        ucg_list_for_each(plan1_fb, &plan1->fallback, fallback) {
+            plan1_fb->attr.range.end = plan2_fb->attr.range.end;
             plan2_fb = ucg_list_next(&plan2_fb->fallback, ucg_plan_t, fallback);
         }
     }
@@ -454,16 +458,7 @@ static void ucg_plans_cleanup_one(ucg_list_link_t *head)
 {
     while (!ucg_list_is_empty(head)) {
         ucg_plan_t *plan = ucg_list_extract_head(head, ucg_plan_t, list);
-        ucg_plan_destory(plan);
-    }
-    return;
-}
-
-static void ucg_plans_compack_one(ucg_list_link_t *head)
-{
-    while (!ucg_list_is_empty(head)) {
-        ucg_plan_t *plan = ucg_list_extract_head(head, ucg_plan_t, list);
-        ucg_plan_destory(plan);
+        ucg_plan_destroy(plan);
     }
     return;
 }
@@ -485,7 +480,7 @@ static void ucg_plans_compact_one(ucg_list_link_t *head)
         if (ucg_plan_is_compactible(plan, next_plan)) {
             ucg_plan_compact(plan, next_plan);
             ucg_list_del(&next_plan->list);
-            ucg_plan_destory(next_plan);
+            ucg_plan_destroy(next_plan);
             next_plan = plan;
         }
     }
@@ -493,7 +488,7 @@ static void ucg_plans_compact_one(ucg_list_link_t *head)
 }
 
 /**
- * Make the ranges of plans in the two linked lists to be same or non-overlap
+ * Make the ranges of plans in the two linked lists to be same or non-overlap.
  */
 static ucg_status_t ucg_plans_normalise_one(ucg_list_link_t *head,
                                             ucg_plan_t *plan,
@@ -545,7 +540,7 @@ err:
     while (!ucg_list_is_empty(new_head)) {
         new_plan = ucg_list_extract_head(new_head, ucg_plan_t, list);
         if (new_plan != plan) {
-            ucg_plan_destory(new_plan);
+            ucg_plan_destroy(new_plan);
         }
         // the input plan will be destroyed out side.
     }
@@ -572,7 +567,7 @@ static ucg_status_t ucg_plans_add_one(ucg_list_link_t *head, ucg_plan_t *plan)
         }
         ucg_plan_t *new_plan = ucg_list_head(&new_plan_head, ucg_plan_t, list);
         ucg_plan_attr_t *new_attr = &new_plan->attr;
-        ucg_plan_attr_t *exist_attr = &exist_attr->attr;
+        ucg_plan_attr_t *exist_attr = &exist_plan->attr;
         uint64_t new_start = new_attr->range.start;
         uint64_t exist_start = exist_attr->range.start;
         if (new_start == exist_start) {
@@ -664,7 +659,7 @@ ucg_status_t ucg_plans_init(ucg_plans_t **plans)
 
 void ucg_plans_cleanup(ucg_plans_t *plans)
 {
-    UCG_CHECK_NULL_INVALID(plans);
+    UCG_CHECK_NULL_VOID(plans);
 
     ucg_coll_type_t coll_type;
     ucg_mem_type_t mem_type;
@@ -711,7 +706,7 @@ ucg_status_t ucg_plans_add(ucg_plans_t *plans, const ucg_plan_params_t *params)
         return UCG_ERR_INVALID_PARAM;
     }
 
-    if (params->attr.derecated) {
+    if (params->attr.deprecated) {
         /* drop it silently */
         return UCG_OK;
     }
@@ -724,7 +719,7 @@ ucg_status_t ucg_plans_add(ucg_plans_t *plans, const ucg_plan_params_t *params)
     ucg_list_link_t *head = &plans->plans[params->coll_type][params->mem_type];
     ucg_status_t status = ucg_plans_add_one(head, new_plan);
     if (status != UCG_OK) {
-        ucg_plan_destory(new_plan);
+        ucg_plan_destroy(new_plan);
         return status;
     }
 
@@ -740,7 +735,7 @@ ucg_status_t ucg_plans_merge(ucg_plans_t **dst, const ucg_plans_t *src)
         return UCG_OK;
     }
 
-    /* New plan container are used to simplify rollback */
+    /* New plan container are used to simplify rollback. */
     ucg_plans_t *new_plans = NULL;
     ucg_status_t status = ucg_plans_init(&new_plans);
     if (status != UCG_OK) {
@@ -817,7 +812,7 @@ ucg_status_t ucg_plans_prepare(const ucg_plans_t *plans, const ucg_coll_args_t *
     ucg_list_for_each(plan_fb, &plan->fallback, fallback) {
         status = plan_fb->attr.prepare(plan_fb->attr.vgroup, args, op);
         if (status == UCG_OK) {
-            ucg_info("select plan '%s' in '%s', origin plan '%s'",
+            ucg_info("select fallback plan '%s' in '%s', origin plan '%s'",
                      plan_fb->attr.name, plan_fb->attr.domain, plan->attr.name);
             return UCG_OK;
         }

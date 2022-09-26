@@ -1,6 +1,6 @@
-#
-# Copyright (c) Huawei Technologies Co., Ltd. 2019-2022. All rights reserved.
-#
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ */
 
 #ifndef UCG_INFO_H_
 #define UCG_INFO_H_

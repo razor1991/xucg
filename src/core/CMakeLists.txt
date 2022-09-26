@@ -1,9 +1,9 @@
 #
-# Copyright (C) Huawei Technologies Co., Ltd. 2020-2022. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
 #
 
 # Find all source files
 file(GLOB_RECURSE SRCS ./*.c)
 
 # Build libucg_core.a
-add_library(ucg_core ${SRCS})
+add_library(ucg_core STATIC ${SRCS})

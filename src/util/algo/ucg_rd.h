@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_ALGO_RECURSIVE_DOUBLING_H_
@@ -52,7 +52,7 @@ void ucg_algo_rd_iter_init(ucg_algo_rd_iter_t *iter, int size, ucg_rank_t myrank
 void ucg_algo_rd_iter_reset(ucg_algo_rd_iter_t *iter);
 
 /**
- * @brief move to next rank.
+ * @brief move to the next rank.
  */
 void ucg_algo_rd_iter_inc(ucg_algo_rd_iter_t *iter);
 

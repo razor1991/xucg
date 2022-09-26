@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg_log.h"
@@ -15,7 +15,7 @@ static ucs_log_level_t ucg_log_tables[] = {
     [UCG_LOG_LEVEL_WARN]  = UCS_LOG_LEVEL_WARN,
     [UCG_LOG_LEVEL_INFO]  = UCS_LOG_LEVEL_INFO,
     [UCG_LOG_LEVEL_DEBUG] = UCS_LOG_LEVEL_DEBUG,
-    [UCG_LOG_LEVEL_TRACE] = UCS_LOG_LEVEL_TRACE,
+    [UCG_LOG_LEVEL_TRACE] = UCS_LOG_LEVEL_TRACE
 };
 
 const char *ucg_log_level_names[] = {

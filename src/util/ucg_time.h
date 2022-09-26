@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_TIME_H_
@@ -8,7 +8,7 @@
 #include <sys/time.h>
 
 /**
- * @brief return the micro-secend(us) of now
+ * @brief return the micro-seconds(us) of now
  */
 static inline uint64_t ucg_get_time_us()
 {

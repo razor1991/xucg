@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_ALGO_RING_H_
@@ -43,7 +43,7 @@ static inline void ucg_algo_ring_iter_inc(ucg_algo_ring_iter_t *iter)
 }
 
 /**
- * @brief move to the next iteration.
+ * @brief Get the current step index.
  */
 static inline int ucg_algo_ring_iter_idx(ucg_algo_ring_iter_t *iter)
 {
@@ -61,7 +61,7 @@ static inline int ucg_algo_ring_iter_end(ucg_algo_ring_iter_t *iter)
 /**
  * @brief Get my left rank.
  */
-static inline int ucg_algo_ring_iter_left_value(ucg_algo_ring_iter_t *iter)
+static inline ucg_rank_t ucg_algo_ring_iter_left_value(ucg_algo_ring_iter_t *iter)
 {
     if (iter->idx < iter->max_idx) {
         return iter->left;
@@ -72,7 +72,7 @@ static inline int ucg_algo_ring_iter_left_value(ucg_algo_ring_iter_t *iter)
 /**
  * @brief Get my right rank.
  */
-static inline int ucg_algo_ring_iter_right_value(ucg_algo_ring_iter_t *iter)
+static inline ucg_rank_t ucg_algo_ring_iter_right_value(ucg_algo_ring_iter_t *iter)
 {
     if (iter->idx < iter->max_idx) {
         return iter->right;

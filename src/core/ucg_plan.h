@@ -1,5 +1,5 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #ifndef UCG_PLAN_H_
@@ -10,12 +10,13 @@
 
 #include "util/ucg_list.h"
 #include "util/ucg_class.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 #include "util/ucg_mpool.h"
 #include "planc/ucg_planc_def.h"
 
 #include <limits.h>
 #include <stdio.h>
+
 
 #define UCG_PLAN_RANGE_MAX (ULONG_MAX)
 #define UCG_PLAN_OPS_MAX 8
@@ -58,6 +59,7 @@
 
 #define UCG_PLAN_ATTR_IS_LAST(_plan_attr) \
     ((_plan_attr)->prepare == NULL)
+
 
 typedef enum ucg_plan_type {
     UCG_PLAN_TYPE_FIRST_CLASS,
@@ -105,7 +107,7 @@ UCG_CLASS_DECLARE(ucg_plan_op_t,
 
 /**
  * @brief Meta plan operation.
- * @details Meta op is an op that consist of mutiple plan ops. All ops are
+ * @details Meta op is an op that consist of multiple plan ops. All ops are
  * executed in the order in which they are added. It can easily implement a
  * collective operation by combining multiple exist plan ops.
  */
@@ -117,12 +119,20 @@ typedef struct ucg_plan_meta_op {
     ucg_plan_op_t *ops[UCG_PLAN_OPS_MAX];
 } ucg_plan_meta_op_t;
 
+typedef struct ucg_plan_range {
+    uint64_t start;
+    uint64_t end;
+} ucg_plan_range_t;
+
+/**
+ * @brief Plan attributes.
+ */
 typedef struct ucg_plan_attr {
     /** Function for preparing operation. */
     ucg_plan_prepare_func_t prepare;
     /** Unique id in its domain. */
     int32_t id;
-    /** Plan name */
+    /** Plan's name */
     const char *name;
     /** Domain which the plan belongs to. Each domain has a set of plans. */
     const char *domain;
@@ -139,7 +149,7 @@ typedef struct ucg_plan_attr {
 /**
  * @brief Plan structure.
  *
- * Plan represents the method of performing the collective operation, It can
+ * Plan represents the method of performing the collective operation. It can
  * generate executable operation through @ref ucg_plan_attr_t::prepare.
  */
 typedef struct ucg_plan {
@@ -196,13 +206,13 @@ void ucg_plans_print(const ucg_plans_t *plans, FILE *stream);
  *
  * The first-class plans have diffrent mem_type, coll_type and range. If the
  * new plan has the same mem_type, coll_type and overlaping range with the
- * existing plans, this routine wil split the plans. After splitting, there are
+ * existing plans, this routine will split the plans. After splitting, there are
  * two cases.
  * 1. Plans with diffrent range: all plans become first-class citizen.
  * 2. Plans with same range: high-score plan becomes first-class citizen and take
  *    the low-score as fallback.
  *
- * This routine can be invoked to add depreacted plan. However, the depreacted
+ * This routine can be invoked to add deprecated plan. However, the deprecated
  * plan is not added in fact.
  *
  * @param [in] plans    Plan container.
@@ -252,7 +262,7 @@ ucg_status_t ucg_plans_prepare(const ucg_plans_t *plans,
 ucg_status_t ucg_plan_attr_update(ucg_plan_attr_t *attr, const char *update);
 
 /**
- * @brief Update the i-h plan attribute by range and score
+ * @brief Update the i-th plan attribute by range and score
  *
  * @param [inout] attr              Plan attribute array
  * @param [in]    id                Algorithm id
@@ -262,7 +272,7 @@ ucg_status_t ucg_plan_attr_update(ucg_plan_attr_t *attr, const char *update);
  */
 static inline
 void ucg_plan_attr_array_update(ucg_plan_attr_t *attr, int32_t id,
-                                uint64_t start, uint64_t end, uint32_t score)
+                                uint64_t start, uint64_t end, int32_t score)
 {
     UCG_CHECK_NULL_VOID(attr);
     for (ucg_plan_attr_t *tmp_attr = attr; !UCG_PLAN_ATTR_IS_LAST(tmp_attr); ++tmp_attr) {

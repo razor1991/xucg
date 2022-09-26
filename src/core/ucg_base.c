@@ -1,12 +1,12 @@
 /*
- *Copyright (C) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  */
 
 #include "ucg/api/ucg.h"
 #include "util/ucg_helper.h"
 
 #include "planc/ucg_planc.h"
-#include "util/ucg_hepler.h"
+#include "util/ucg_helper.h"
 
 #include <stddef.h>
 
@@ -24,7 +24,7 @@ const char* ucg_mem_type_string(ucg_mem_type_t mem_type)
 
 const char* ucg_status_string(ucg_status_t status)
 {
-    switch {
+    switch (status) {
         case UCG_OK:
             return "Success";
         case UCG_INPROGRESS:
@@ -57,9 +57,10 @@ ucg_status_t ucg_mem_query(const void *ptr, ucg_mem_attr_t *attr)
     for (int i = 0; i < count; ++i) {
         ucg_planc_t *planc = ucg_planc_get_by_idx(i);
         ucg_status_t status = planc->mem_query(ptr, attr);
-        if (statue == UCG_OK) {
+        if (status == UCG_OK) {
             return UCG_OK;
         }
     }
+
     return UCG_OK;
 }
