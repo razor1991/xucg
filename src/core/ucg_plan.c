@@ -433,7 +433,7 @@ static void ucg_plan_compact(ucg_plan_t *plan1, const ucg_plan_t *plan2)
     if (plan1->type == UCG_PLAN_TYPE_FIRST_CLASS) {
         ucg_assert(plan1->type == plan2->type);
         ucg_assert(ucg_list_length(&plan1->fallback) ==
-                   ucg_list_length(&plan2->fallback));
+                   ucg_list_length((ucg_list_link_t*)&plan2->fallback));
 
         ucg_plan_t *plan1_fb = NULL;
         ucg_plan_t *plan2_fb = ucg_list_head(&plan2->fallback, ucg_plan_t, fallback);
