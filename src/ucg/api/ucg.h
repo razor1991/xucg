@@ -1152,6 +1152,39 @@ ucg_status_t ucg_request_scatterv_init(const void *sendbuf, const int32_t *sendc
 
 /**
  * @ingroup UCG_REQUEST
+ * @brief Create a persistent gatherv request.
+ *
+ * The block of data sent from the j-th process is received by every process and
+ * placed in the j-th block of the recvbuf.
+ *
+ * @param [in]  sendbuf         Starting address of send buffer
+ * @param [in]  sendcount       Number of elements in send buffer(non-negative
+ *                              integer)
+ * @param [in]  sendtype        Data type of send buffer elements
+ * @param [out] recvbuf         Address of receive buffer
+ * @param [in]  recvcounts      Non-negative integer array (of length group size)
+ *                              containing the number of elements that are received
+ *                              from each process
+ * @param [in]  displs          Integer array (of length group size). Entry i specifies
+ *                              the displacement (relative to recvbuf) at which to
+ *                              place the incoming data from process i
+ * @param [in]  recvtype        Data type of receive buffer elements
+ * @param [in]  root            Rank of receiving process
+ * @param [in]  group           Communication group
+ * @param [in]  info            Informations for creating request
+ * @param [out] request         Collective request
+ * @retval UCG_OK Success.
+ * @retval Otherwise Failure.
+ */
+ucg_status_t ucg_request_gatherv_init(const void *sendbuf, const int32_t sendcount,
+                                      ucg_dt_h sendtype, void *recvbuf,
+                                      const int32_t* recvcounts, const int32_t *displs,
+                                      ucg_dt_h recvtype, ucg_rank_t root,
+                                      ucg_group_h group, const ucg_request_info_t *info,
+                                      ucg_request_h *request);
+
+/**
+ * @ingroup UCG_REQUEST
  * @brief Create a persistent allgather request.
  *
  * The block of data sent from the j-th process is received by every process and
